@@ -72,6 +72,7 @@ else ()
 endif ()
 
 
+add_subdirectory("dependencies/enet")
 add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/jsoncpp")
 

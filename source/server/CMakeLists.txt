@@ -4,6 +4,7 @@ FILE(GLOB_RECURSE server_src CONFIGURE_DEPENDS *.cpp *.c *.h *.rc)
 add_executable(${PROJECT_NAME} ${server_src})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
+	${CMAKE_SOURCE_DIR}/dependencies/enet/include/
         ${CMAKE_SOURCE_DIR}/dependencies/socketw/
         ${CMAKE_SOURCE_DIR}/dependencies/
         ${CMAKE_SOURCE_DIR}/source/protocol/
