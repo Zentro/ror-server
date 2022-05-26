@@ -23,6 +23,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "UnicodeStrings.h"
 #include <map>
 #include <vector>
+#include <curl/curl.h>
 
 namespace Http {
 

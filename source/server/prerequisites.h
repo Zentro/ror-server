@@ -14,6 +14,8 @@ class Receiver;
 
 class Listener;
 
+class Api;
+
 class UserAuth;
 
 class ScriptEngine;

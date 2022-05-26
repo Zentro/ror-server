@@ -71,7 +71,7 @@ else ()
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
 
-
+add_subdirectory("dependencies/curl")
 add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/jsoncpp")
 
