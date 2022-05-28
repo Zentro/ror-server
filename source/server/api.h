@@ -19,17 +19,22 @@
 
 #pragma once
 
+#include "prerequisites.h"
+
 #include <string>
 
 class Api {
 public:
+	Api();
+
 	void				GetIpv4();
 	void				GetIpv6();
-	void				PostCreateServer();
+	bool				PostCreateServer();
 	void				PutUpdateServer();
 	void				DeleteServer();
 	void				PutHeartbeat();
 private:
 	std::string			m_base_url;
 	std::string			m_api_key;
+	std::string			m_user_agent;
 };

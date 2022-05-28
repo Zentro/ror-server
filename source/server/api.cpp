@@ -20,9 +20,16 @@
 /// @author Rafael Galvan 5/2022
 
 #include "api.h"
+#include "logger.h"
 
 #include <curl/curl.h>
 #include <curl/easy.h>
+#include <json/json.h>
+
+Api::Api()
+{
+	
+}
 
 static size_t WriteCallback(void* ptr, size_t size, size_t nmemb, std::string* data)
 {
@@ -30,12 +37,6 @@ static size_t WriteCallback(void* ptr, size_t size, size_t nmemb, std::string* d
 	return size * nmemb;
 }
 
-/**
-* Find the public IPv4 address assigned to the device. Does not require
-* any connectivity to the API. Does require an Internet connection.
-* 
-* @return
-*/
 void Api::GetIpv4()
 {
 	std::string response;
@@ -58,12 +59,6 @@ void Api::GetIpv4()
 	curl = nullptr;
 }
 
-/**
-* Find the public IPv6 address assigned to the device. Does not require
-* any connectivity to the API. Does require an Internet connection.
-* 
-* @return
-*/
 void Api::GetIpv6()
 {
 	std::string response;
@@ -86,42 +81,63 @@ void Api::GetIpv6()
 	curl = nullptr;
 }
 
-/**
-* Request to create the server with the API. Will fail if the API cannot
-* connect to the server. HTTP/204 OK
-* 
-* @return
-*/
-void Api::PostCreateServer()
+bool Api::PostCreateServer()
 {
+	Json::Value payload(Json::objectValue);
+
+	std::string payload_str = payload.toStyledString();
 	std::string response;
 	std::string url = m_base_url + "/servers";
 	long code = 0;
 
+	struct curl_slist* headers = NULL;
+	headers = curl_slist_append(headers, "Accept: application/json");
+	headers = curl_slist_append(headers, "Content-Type: application/json");
+	headers = curl_slist_append(headers, "charsets: utf-8");
+
 	CURL* curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload_str.c_str());
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload_str.length());
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+	Logger::Log(LOG_INFO, "");
+	Logger::Log(LOG_DEBUG, "");
 
 	curl_easy_perform(curl);
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
 
 	curl_easy_cleanup(curl);
 	curl = nullptr;
+
+	if (code != 200)
+	{
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
+
+	Json::Value root;
+	Json::Reader reader;
+	if (!reader.parse(response.c_str(), root)) {
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
+
+	return true;
 }
 
-/**
-* Request to update any changes to the server with the API. 
-* HTTP/204 No Content
-* 
-* @return
-*/
 void Api::PutUpdateServer()
 {
 	std::string response;
@@ -146,10 +162,6 @@ void Api::PutUpdateServer()
 	curl = nullptr;
 }
 
-/**
-* Request to delete the server from the API. Will invalidate the access
-* and refresh tokens. HTTP/204 No Content
-*/
 void Api::DeleteServer()
 {
 	std::string response;
@@ -174,13 +186,6 @@ void Api::DeleteServer()
 	curl = nullptr;
 }
 
-/**
-* Request to send a "heartbeat" to the API. This basically tells the API
-* that the server is still online every 5 minutes. If a heartbeat is
-* missed the API will assume that the server is offline. It will not
-* delete the server from the API until the access and refresh tokens
-* expire. HTTP/204 No Content
-*/
 void Api::PutHeartbeat()
 {
 	std::string response;
