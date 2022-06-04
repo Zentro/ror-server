@@ -21,6 +21,7 @@
 
 #include "api.h"
 #include "logger.h"
+#include "rornet.h"
 
 #include <curl/curl.h>
 #include <curl/easy.h>
@@ -37,56 +38,131 @@ static size_t WriteCallback(void* ptr, size_t size, size_t nmemb, std::string* d
 	return size * nmemb;
 }
 
-void Api::GetIpv4()
+bool Api::GetIpv4()
 {
-	std::string response;
-	long code = 0;
+	std::string response_body;
+	std::string request_url = "https://api.ipify.org";
+	long response_code = 0;
 
 	CURL* curl = curl_easy_init();
-	curl_easy_setopt(curl, CURLOPT_URL, "https://api.ipify.org");
+	curl_easy_setopt(curl, CURLOPT_URL, request_url.c_str());
 	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+
+	Logger::Log(LOG_INFO, "");
+	Logger::Log(LOG_DEBUG, "");
 
 	curl_easy_perform(curl);
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 
 	curl_easy_cleanup(curl);
 	curl = nullptr;
+
+	if (response_code != 200)
+	{
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
 }
 
-void Api::GetIpv6()
+bool Api::GetIpv6()
 {
-	std::string response;
-	long code = 0;
+	std::string response_body;
+	std::string request_url = "https://api64.ipify.org";
+	long response_code = 0;
 
 	CURL* curl = curl_easy_init();
-	curl_easy_setopt(curl, CURLOPT_URL, "https://api64.ipify.org");
+	curl_easy_setopt(curl, CURLOPT_URL, request_url.c_str());
 	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+
+	Logger::Log(LOG_INFO, "");
+	Logger::Log(LOG_DEBUG, "");
 
 	curl_easy_perform(curl);
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 
 	curl_easy_cleanup(curl);
 	curl = nullptr;
+
+	if (response_code != 200)
+	{
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
 }
 
-bool Api::PostCreateServer()
+bool Api::PostCreateServer(std::string payload)
 {
-	Json::Value payload(Json::objectValue);
+	std::string response_body;
+	std::string request_url = m_base_url + "/servers";
+	long response_code = 0;
 
-	std::string payload_str = payload.toStyledString();
-	std::string response;
+	struct curl_slist* request_headers = NULL;
+	request_headers = curl_slist_append(request_headers, "Accept: application/json");
+	request_headers = curl_slist_append(request_headers, "Content-Type: application/json");
+	request_headers = curl_slist_append(request_headers, "charsets: utf-8");
+
+	CURL* curl = curl_easy_init();
+	curl_easy_setopt(curl, CURLOPT_URL, request_url.c_str());
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload.length());
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, request_headers);
+	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+#ifdef _WIN32
+	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif // _WIN32
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+
+	Logger::Log(LOG_INFO, "");
+	Logger::Log(LOG_DEBUG, "");
+
+	curl_easy_perform(curl);
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+	curl_slist_free_all(request_headers);
+	curl_easy_cleanup(curl);
+	curl = nullptr;
+
+	if (response_code != 200)
+	{
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
+
+	Json::Value root;
+	Json::Reader reader;
+	if (!reader.parse(response_body.c_str(), root)) {
+		Logger::Log(LOG_ERROR, "");
+		Logger::Log(LOG_DEBUG, "");
+		return false;
+	}
+
+	return true;
+}
+
+bool Api::PutUpdateServer(std::string payload)
+{
 	std::string url = m_base_url + "/servers";
 	long code = 0;
 
@@ -97,19 +173,17 @@ bool Api::PostCreateServer()
 
 	CURL* curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload_str.c_str());
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload_str.length());
-	curl_easy_setopt(curl, CURLOPT_POST, 1);
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, payload.length());
+	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
 	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
 	Logger::Log(LOG_INFO, "");
 	Logger::Log(LOG_DEBUG, "");
@@ -117,19 +191,12 @@ bool Api::PostCreateServer()
 	curl_easy_perform(curl);
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
 
+	curl_slist_free_all(headers);
 	curl_easy_cleanup(curl);
 	curl = nullptr;
 
-	if (code != 200)
+	if (code != 201)
 	{
-		Logger::Log(LOG_ERROR, "");
-		Logger::Log(LOG_DEBUG, "");
-		return false;
-	}
-
-	Json::Value root;
-	Json::Reader reader;
-	if (!reader.parse(response.c_str(), root)) {
 		Logger::Log(LOG_ERROR, "");
 		Logger::Log(LOG_DEBUG, "");
 		return false;
@@ -138,46 +205,21 @@ bool Api::PostCreateServer()
 	return true;
 }
 
-void Api::PutUpdateServer()
-{
-	std::string response;
-	std::string url = m_base_url + "/servers";
-	long code = 0;
-
-	CURL* curl = curl_easy_init();
-	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-	curl_easy_setopt(curl, CURLOPT_PUT, 1);
-	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
-#ifdef _WIN32
-	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-#endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-
-	curl_easy_perform(curl);
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
-
-	curl_easy_cleanup(curl);
-	curl = nullptr;
-}
-
 void Api::DeleteServer()
 {
-	std::string response;
 	std::string url = m_base_url + "/servers";
 	long code = 0;
 
 	CURL* curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
 	curl_easy_perform(curl);
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
@@ -188,20 +230,19 @@ void Api::DeleteServer()
 
 void Api::PutHeartbeat()
 {
-	std::string response;
 	std::string url = m_base_url + "/servers";
 	long code = 0;
 
 	CURL* curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
 	curl_easy_setopt(curl, CURLOPT_PUT, 1);
-	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+	curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 #ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 #endif // _WIN32
-	curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
+	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, m_user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
 	curl_easy_perform(curl);
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);

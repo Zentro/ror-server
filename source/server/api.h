@@ -27,10 +27,10 @@ class Api {
 public:
 	Api();
 
-	void				GetIpv4();
-	void				GetIpv6();
-	bool				PostCreateServer();
-	void				PutUpdateServer();
+	bool				GetIpv4();
+	bool				GetIpv6();
+	bool				PostCreateServer(std::string payload);
+	bool				PutUpdateServer(std::string payload);
 	void				DeleteServer();
 	void				PutHeartbeat();
 private:
