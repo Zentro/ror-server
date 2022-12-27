@@ -57,7 +57,6 @@ static std::string s_rulesfile("server.rules");
 static std::string s_blacklistfile("server.blacklist");
 static std::string s_owner;
 static std::string s_website;
-static std::string s_irc;
 static std::string s_voip;
 static std::string s_serverlist_host("api.rigsofrods.org");
 static std::string s_serverlist_path("");
@@ -126,7 +125,6 @@ namespace Config {
                         " -vehicle-limit {0-...}       Sets the maximum number of vehicles that a user is allowed to have\n"
                         " -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n"
                         " -website <URL>               Sets the website of this server (for the !website command) (optional)\n"
-                        " -irc <URL>                   Sets the IRC url for this server (for the !irc command) (optional)\n"
                         " -voip <URL>                  Sets the voip url for this server (for the !voip command) (optional)\n"
                         " -help                        Show this list\n");
     }
@@ -255,7 +253,6 @@ namespace Config {
             HANDLE_ARG_VALUE("blacklist-file", { setBlacklistFile(value); });
             HANDLE_ARG_VALUE("owner", { setOwner(value); });
             HANDLE_ARG_VALUE("website", { setWebsite(value); });
-            HANDLE_ARG_VALUE("irc", { setIRC(value); });
             HANDLE_ARG_VALUE("voip", { setVoIP(value); });
             HANDLE_ARG_VALUE("config-file", { config_file = value; });
             HANDLE_ARG_VALUE("c", { config_file = value; });
@@ -327,8 +324,6 @@ namespace Config {
     const std::string &getOwner() { return s_owner; }
 
     const std::string &getWebsite() { return s_website; }
-
-    const std::string &getIRC() { return s_irc; }
 
     const std::string &getVoIP() { return s_voip; }
 
@@ -429,8 +424,6 @@ namespace Config {
 
     void setWebsite(const std::string &website) { s_website = website; }
 
-    void setIRC(const std::string &irc) { s_irc = irc; }
-
     void setVoIP(const std::string &voip) { s_voip = voip; }
 
     void setSpamFilterMsgIntervalSec(int sec) { s_spamfilter_msg_interval_sec = sec; }
@@ -503,7 +496,6 @@ namespace Config {
         else if (strcmp(key, "blacklistfile") == 0) { setBlacklistFile(VAL_STR(value)); }
         else if (strcmp(key, "owner") == 0) { setOwner(VAL_STR (value)); }
         else if (strcmp(key, "website") == 0) { setWebsite(VAL_STR (value)); }
-        else if (strcmp(key, "irc") == 0) { setIRC(VAL_STR (value)); }
         else if (strcmp(key, "voip") == 0) { setVoIP(VAL_STR (value)); }
         else if (strcmp(key, "serverlist-host") == 0) { s_serverlist_host = VAL_STR (value); }
         else if (strcmp(key, "serverlist-path") == 0) { s_serverlist_path = VAL_STR (value); }

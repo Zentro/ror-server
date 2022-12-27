@@ -12,6 +12,7 @@ SET(LIBRARY_OUTPUT_PATH ${RUNTIME_OUTPUT_DIRECTORY})
 
 #options
 option(RORSERVER_WITH_ANGELSCRIPT "adds scripting support" FALSE)
+option(RORSERVER_WITH_CURL "make HTTP requests to the API with curl" TRUE)
 
 # hide some settings
 mark_as_advanced(
@@ -68,7 +69,6 @@ if (NOT WIN32)
     endif ()
     mark_as_advanced(GDB_EXECUTABLE)
 endif ()
-
 
 add_subdirectory("dependencies/socketw")
 add_subdirectory("dependencies/jsoncpp")

@@ -1136,12 +1136,6 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                 sprintf(sayMsg, "Further information can be found online at %s", Config::getWebsite().c_str());
                 serverSay(sayMsg, uid, FROM_SERVER);
             }
-        } else if (str == "!irc") {
-            if (!Config::getIRC().empty()) {
-                char sayMsg[256] = "";
-                sprintf(sayMsg, "IRC: %s", Config::getIRC().c_str());
-                serverSay(sayMsg, uid, FROM_SERVER);
-            }
         } else if (str == "!owner") {
             if (!Config::getOwner().empty()) {
                 char sayMsg[256] = "";

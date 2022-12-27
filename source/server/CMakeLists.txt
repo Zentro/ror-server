@@ -11,6 +11,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         ${CMAKE_SOURCE_DIR}/dependencies/jsoncpp/include/
         )
 
+if (RORSERVER_WITH_CURL)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_CURL)
+endif ()
+
 # libraries
 if (RORSERVER_WITH_ANGELSCRIPT)
     add_dependencies(${PROJECT_NAME} angelscript)

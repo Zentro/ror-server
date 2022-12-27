@@ -1,0 +1,13 @@
+debug: false
+api:
+  enabled: true
+  key: L4Ix-5WkXYh2OTc0NVifh7Qek7ztACjM
+  fullPath: https://v2.api.rigsofrods.org
+  uuid: c042f86c-477a-11ed-b878-0242ac120002
+rootDirectory: ""
+logDirectory: ""
+resourceDirectory: ""
+password: null
+network:
+  host: localhost
+  port: 12000

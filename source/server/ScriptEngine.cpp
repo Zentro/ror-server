@@ -457,9 +457,6 @@ void ScriptEngine::init() {
     result = engine->RegisterObjectMethod("ServerScriptClass", "string get_website()",
                                           asMETHOD(ServerScript, get_website), asCALL_THISCALL);
     assert_net(result >= 0);
-    result = engine->RegisterObjectMethod("ServerScriptClass", "string get_ircServ()",
-                                          asMETHOD(ServerScript, get_ircServ), asCALL_THISCALL);
-    assert_net(result >= 0);
     result = engine->RegisterObjectMethod("ServerScriptClass", "string get_voipServ()",
                                           asMETHOD(ServerScript, get_voipServ), asCALL_THISCALL);
     assert_net(result >= 0);
@@ -1206,8 +1203,6 @@ int ServerScript::get_serverMode() { return (int)Config::getServerMode(); }
 std::string ServerScript::get_owner() { return Config::getOwner(); }
 
 std::string ServerScript::get_website() { return Config::getWebsite(); }
-
-std::string ServerScript::get_ircServ() { return Config::getIRC(); }
 
 std::string ServerScript::get_voipServ() { return Config::getVoIP(); }
 

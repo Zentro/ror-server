@@ -81,8 +81,6 @@ namespace Config {
 
     const std::string &getWebsite();
 
-    const std::string &getIRC();
-
     const std::string &getVoIP();
 
     const std::string &GetServerlistHost();
@@ -151,8 +149,6 @@ namespace Config {
     void setOwner(const std::string &owner);
 
     void setWebsite(const std::string &website);
-
-    void setIRC(const std::string &irc);
 
     void setVoIP(const std::string &voip);
 

@@ -26,6 +26,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "messaging.h"
 #include "listener.h"
+#include "api.h"
 #include "master-server.h"
 #include "utils.h"
 
@@ -58,6 +59,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 static Sequencer s_sequencer;
 static MasterServer::Client s_master_server;
+static Api::Client s_api;
 static bool s_exit_requested = false;
 #ifndef _WIN32
 
