@@ -74,3 +74,5 @@ std::string trim(const std::string &str);
 std::string hexdump(void *pAddressIn, long lSize);
 
 int intlen(int num);
+
+size_t CurlStringWriteFunc(void *ptr, size_t size, size_t nmemb, std::string *data);

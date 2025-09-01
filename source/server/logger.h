@@ -35,7 +35,7 @@ enum LogLevel {
 
 enum LogType {
     LOGTYPE_FILE = 0,
-    LOGTYPE_DISPLAY
+    LOGTYPE_CONSOLE
 };
 
 namespace Logger {
@@ -51,3 +51,10 @@ namespace Logger {
     void SetLogLevel(const LogType type, const LogLevel level);
 
 } // namespace Logger
+
+void setupLogging()
+{
+    Logger::SetOutputFile("server.log");
+    Logger::SetLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
+    Logger::SetLogLevel(LOGTYPE_CONSOLE, LOG_INFO);
+}

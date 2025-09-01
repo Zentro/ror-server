@@ -17,3 +17,4 @@ class RoRServer(ConanFile):
         self.requires("openssl/3.3.2", override=True)
         self.requires("socketw/3.11.0@anotherfoxguy/stable")
         self.requires("libcurl/8.10.1")
+        self.requires("yaml-cpp/0.8.0")

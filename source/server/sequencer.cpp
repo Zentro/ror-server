@@ -170,7 +170,8 @@ void Sequencer::Initialize() {
 
     this->StartKillerThread();
 
-    m_auth_resolver = new UserAuth(Config::getAuthFile());
+    m_auth_resolver = UserAuth(Config::getAuthFile());
+    UserAuth m_auth_resolver = UserAuth("test",);
 
     m_blacklist.LoadBlacklistFromFile();
 }

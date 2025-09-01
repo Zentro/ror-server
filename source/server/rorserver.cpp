@@ -33,6 +33,7 @@
 #include "master-server.h"
 #include "utils.h"
 #include "api.h"
+#include "userauth.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -46,29 +47,43 @@
 #include <string.h>
 
 #ifdef _WIN32
-# include "windows.h"
-# include "resource.h"
+#include "windows.h"
+#include "resource.h"
 #else // _WIN32
 
-# include <fcntl.h>
-# include <signal.h>
-# include <unistd.h>
-# include <sys/types.h>
-# include <pwd.h>
-# include <sys/types.h>
-# include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #endif // _WIN32
 
-
 static Sequencer s_sequencer;
 static MasterServer::Client s_master_server;
-static Api::Client s_api_client;
 static bool s_exit_requested = false;
 #ifndef _WIN32
 
-void handler(int signalnum) {
-    if (s_exit_requested) {
+enum ServerType
+{
+    SERVER_LAN = 0,
+    SERVER_INET,
+    SERVER_AUTO
+};
+
+enum ServerState
+{
+    SERVER_START,
+    SERVER_RUNNING,
+    SERVER_STOPPED
+};
+
+void handler(int signalnum)
+{
+    if (s_exit_requested)
+    {
         return;
     }
     s_exit_requested = true;
@@ -77,27 +92,39 @@ void handler(int signalnum) {
 
     bool terminate = false;
 
-    if (signalnum == SIGINT) {
+    if (signalnum == SIGINT)
+    {
         Logger::Log(LOG_ERROR, "got interrupt signal, terminating ...");
         terminate = true;
-    } else if (signalnum == SIGTERM) {
+    }
+    else if (signalnum == SIGTERM)
+    {
         Logger::Log(LOG_ERROR, "got terminate signal, terminating ...");
         terminate = true;
-    } else if (signalnum == SIGHUP) {
+    }
+    else if (signalnum == SIGHUP)
+    {
         Logger::Log(LOG_ERROR, "got HUP signal, terminating ...");
         terminate = true;
-    } else {
+    }
+    else
+    {
         Logger::Log(LOG_ERROR, "got unkown signal: %d", signal);
     }
 
-    if (terminate) {
-        if (Config::getServerMode() == SERVER_LAN) {
+    if (terminate)
+    {
+        if (Config::getServerMode() == SERVER_LAN)
+        {
             Logger::Log(LOG_INFO, "closing server ... ");
             s_sequencer.Close();
-        } else {
+        }
+        else
+        {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
             // We should really have a global var for the server status...
-            if (s_api_client.Authenticated()) {
+            if (s_api_client.Authenticated())
+            {
                 s_api_client.SyncServerPowerState("offline");
             }
             s_sequencer.Close();
@@ -142,182 +169,62 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
 }
 #endif
 
-#ifndef WITHOUTMAIN
+int main(int argc, char *argv[])
+{
 
-#ifndef _WIN32
-// from http://www.enderunix.org/docs/eng/daemon.php
-// also http://www-theorie.physik.unizh.ch/~dpotter/howto/daemonize
+    // YEAH NO this main class is getting redone
+    ServerType mode = SERVER_AUTO;
+    ServerState state = SERVER_START;
 
-#define LOCK_FILE "rorserver.lock"
-
-void daemonize() {
-    if (getppid() == 1) {
-        /* already a daemon */
-        return;
-    }
-
-    /* Drop user if there is one, and we were run as root */
-    const char *username = "rorserver";
-    // TODO: add flexibility to change the username via cmdline
-    if (getuid() == 0 || geteuid() == 0) {
-        Logger::Log(LOG_VERBOSE, "changing user to %s", username);
-        struct passwd *pw = getpwnam(username);
-        if (pw) {
-            int i = setuid(pw->pw_uid);
-            if (i) {
-                perror("unable to change user");
-                exit(1);
-            }
-        } else {
-            //perror("error getting user");
-            Logger::Log(LOG_ERROR, "unable to get user %s, Is it existing?", username);
-            printf("unable to get user %s, Is it existing?\n", username);
-            exit(1);
-        }
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        Logger::Log(LOG_ERROR, "error forking into background");
-        perror("error forking into background");
-        exit(1); /* fork error */
-    }
-    if (pid > 0) {
-        // need both here
-        printf("forked into background as pid %d\n", pid);
-        Logger::Log(LOG_INFO, "forked into background as pid %d", pid);
-        exit(0); /* parent exits */
-    }
-
-    /* child (daemon) continues */
-
-    /* Change the file mode mask */
-    umask(0);
-
-    /* obtain a new process group */
-    pid_t sid = setsid();
-    if (sid < 0) {
-        perror("unable to get a new session");
-        exit(1);
-    }
-
-    /* Redirect standard files to /dev/null */
-    freopen("/dev/null", "r", stdin);
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
-
-    /* Change the current working directory.  This prevents the current
-       directory from being locked; hence not being able to remove it. */
-    if ((chdir("/")) < 0) {
-        perror("unable to change working directory to /");
-        exit(1);
-    }
-
-    /*
-    // TODO: add config option for lockfile name
+    if (!sha1check())
     {
-        int lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
-        if (lfp<0)
-        {
-            //cannot open
-            perror("could not open lock file");
-            exit(1);
-        }
-        if (lockf(lfp,F_TLOCK,0)<0)
-        {
-            // cannot lock
-            perror("could not lock");
-            exit(0); 
-        }
-
-        // record pid to lockfile
-        char str[10];
-        sprintf(str,"%d\n",getpid());
-        write(lfp,str,strlen(str));
-    }
-    */
-
-    // ignore some signals
-    signal(SIGCHLD, SIG_IGN); /* ignore child */
-    signal(SIGTSTP, SIG_IGN); /* ignore tty signals */
-    signal(SIGTTOU, SIG_IGN);
-    signal(SIGTTIN, SIG_IGN);
-}
-
-#endif // ! _WIN32
-
-int main(int argc, char *argv[]) {
-    // set default verbose levels
-    Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
-    Logger::SetLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
-    Logger::SetOutputFile("server.log");
-
-    if (!Config::ProcessArgs(argc, argv)) {
-        return -1;
-    }
-    if (Config::GetShowHelp()) {
-        Config::ShowHelp();
-        return 0;
-    }
-    if (Config::GetShowVersion()) {
-        Config::ShowVersion();
-        return 0;
-    }
-
-    // Check configuration
-    ServerType server_mode = Config::getServerMode();
-    if (server_mode != SERVER_LAN) {
-        Logger::Log(LOG_INFO, "Starting server in INET mode");
-        std::string ip_addr = Config::getIPAddr();
-        if (ip_addr.empty() || (ip_addr == "0.0.0.0")) {
-            Logger::Log(LOG_WARN, "No IP given, detecting...");
-            if (s_api.GetPublicIp(ip_addr) != API_NO_ERROR) {
-                Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
-                return -1;
-            }
-        }
-        Logger::Log(LOG_INFO, "IP address: %s", Config::getIPAddr().c_str());
-
-        unsigned int max_clients = Config::getMaxClients();
-        Logger::Log(LOG_INFO, "Maximum required upload: %ikbit/s", max_clients * (max_clients - 1) * 64);
-        Logger::Log(LOG_INFO, "Maximum required download: %ikbit/s", max_clients * 64);
-
-        if (Config::getServerName().empty()) {
-            Logger::Log(LOG_ERROR, "Server name not specified, exit.");
-            return -1;
-        }
-        Logger::Log(LOG_INFO, "Server name: %s", Config::getServerName().c_str());
-    }
-
-    if (!Config::checkConfig()) {
-        return 1;
-    }
-
-    if (!sha1check()) {
         Logger::Log(LOG_ERROR, "sha1 malfunction!");
         return -1;
     }
-
-#ifndef _WIN32
-    if (!Config::getForeground()) {
-        // no output because of background mode
-        Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
-        daemonize();
-    }
-#endif // ! _WIN32
 
     // so ready to run, then set up signal handling
 #ifndef _WIN32
     signal(SIGHUP, handler);
     signal(SIGINT, handler);
     signal(SIGTERM, handler);
-#else // _WIN32
+#else  // _WIN32
     SetConsoleCtrlHandler(WindowsConsoleHandlerRoutine, TRUE);
 #endif // ! _WIN32
 
+    /**
+     * Start by initializing the configuration.
+     * This means loading the config file or CLI arguments
+     * and parsing it. Should we fail to load the config,
+     * we should exit with an error to stderr.
+     */
+
+    setupConfiguration();
+
+    /**
+     * Setup logging with the values provided from
+     * the configuration.
+     */
+
+    setupLogging();
+
+    /**
+     * Next, initialize the API client.
+     */
+
+    ApiClient apiClient(Config::apiEndpoint(), Config::apiKey());
+
+    /**
+     * Next, initialize the user auth resolver.
+     */
+
+    UserAuth userAuth(Config::authFile(), apiClient);
+    /**
+     * Then, initialize the listener and sequencer.
+     */
 
     Listener listener(&s_sequencer);
-    if (!listener.Initialize()) {
+    if (!listener.Initialize())
+    {
         return -1;
     }
     s_sequencer.Initialize();
@@ -331,7 +238,7 @@ int main(int argc, char *argv[]) {
             listener.Shutdown();
             return -1;
         }
-    
+
         Logger::Log(LOG_ERROR, "The API key was not set or is missing from the config file, continuing in LAN mode.");
         server_mode = SERVER_LAN;
     }
@@ -341,68 +248,84 @@ int main(int argc, char *argv[]) {
         ApiErrorState api_error;
         api_error = s_api_client.CreateServer();
     }
-    
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
-    if (server_mode != SERVER_LAN) {
+    if (server_mode != SERVER_LAN)
+    {
         bool registered = s_master_server.Register();
-        if (!registered && (server_mode == SERVER_INET)) {
+        if (!registered && (server_mode == SERVER_INET))
+        {
             Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
             listener.Shutdown();
             return -1;
-        } else if (!registered) // server_mode == SERVER_AUTO
+        }
+        else if (!registered) // server_mode == SERVER_AUTO
         {
             Logger::Log(LOG_WARN, "Failed to register on serverlist, continuing in LAN mode");
             server_mode = SERVER_LAN;
-        } else {
+        }
+        else
+        {
             Logger::Log(LOG_INFO, "Registration successful");
         }
     }
 
     // start the main program loop
     // if we need to communiate to the master user the notifier routine
-    if (server_mode != SERVER_LAN) {
-        //heartbeat
-        while (!s_exit_requested) {
+    if (server_mode != SERVER_LAN)
+    {
+        // heartbeat
+        while (!s_exit_requested)
+        {
             Messaging::UpdateMinuteStats();
             s_sequencer.UpdateMinuteStats();
 
-            //every minute
+            // every minute
             Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
 
             Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
             Json::Value user_list(Json::arrayValue);
             s_sequencer.GetHeartbeatUserList(user_list);
-            if (!s_master_server.SendHeatbeat(user_list)) {
+            if (!s_master_server.SendHeatbeat(user_list))
+            {
                 unsigned int timeout = Config::GetHeartbeatRetrySeconds();
                 unsigned int max_retries = Config::GetHeartbeatRetryCount();
                 Logger::Log(LOG_WARN, "A heartbeat failed! Retry in %d seconds.", timeout);
                 bool success = false;
-                for (unsigned int i = 0; i < max_retries; ++i) {
+                for (unsigned int i = 0; i < max_retries; ++i)
+                {
                     Utils::SleepSeconds(timeout);
                     success = s_master_server.SendHeatbeat(user_list);
 
                     LogLevel log_level = (success ? LOG_INFO : LOG_ERROR);
                     const char *log_result = (success ? "successful." : "failed.");
                     Logger::Log(log_level, "Heartbeat retry %d/%d %s", i + 1, max_retries, log_result);
-                    if (success) {
+                    if (success)
+                    {
                         break;
                     }
                 }
-                if (!success) {
+                if (!success)
+                {
                     Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
                     s_exit_requested = true;
                 }
-            } else {
+            }
+            else
+            {
                 Logger::Log(LOG_VERBOSE, "Heartbeat sent OK");
             }
         }
 
-        if (s_master_server.IsRegistered()) {
+        if (s_master_server.IsRegistered())
+        {
             s_master_server.UnRegister();
         }
-    } else {
-        while (!s_exit_requested) {
+    }
+    else
+    {
+        while (!s_exit_requested)
+        {
             Messaging::UpdateMinuteStats();
             s_sequencer.UpdateMinuteStats();
 
@@ -417,6 +340,3 @@ int main(int argc, char *argv[]) {
     s_sequencer.Close();
     return 0;
 }
-
-#endif //WITHOUTMAIN
-

@@ -241,3 +241,9 @@ int intlen(int num) {
     }
     return length;
 }
+
+size_t CurlStringWriteFunc(void *ptr, size_t size, size_t nmemb, std::string *data)
+{
+    data->append((char *)ptr, size * nmemb);
+    return size * nmemb;
+}

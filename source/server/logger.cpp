@@ -72,7 +72,7 @@ namespace Logger {
         tid_ss << std::this_thread::get_id();
         std::string tid_str = tid_ss.str();
 
-        if (level >= s_log_level[LOGTYPE_DISPLAY]) {
+        if (level >= s_log_level[LOGTYPE_CONSOLE]) {
             printf("%s|t%s|%5s|%s\n", time_str, tid_str.c_str(), level_str, msg);
         }
 
