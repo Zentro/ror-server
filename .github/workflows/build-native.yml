@@ -9,13 +9,15 @@ jobs:
       - name: Install build Dependencies
         run: |
           sudo apt update
-          sudo apt install -y libjsoncpp-dev fakeroot libarchive-tools python3-apt zstd gettext
-          curl "https://cdn.anotherfoxguy.com/makedeb/install-makedeb.sh" | sudo bash
-
+          sudo apt install -y libjsoncpp-dev fakeroot libarchive-tools python3-apt zstd gettext libcurl-dev
       - name: Install angelscript
-        run: git clone https://mpr.makedeb.org/angelscript.git && cd angelscript && makedeb -is
+        run: |
+          git clone https://github.com/anjo76/angelscript
+          cd angelscript/sdk/angelscript/projects/gnuc
+          make
+          make install
       - name: Install socketw
-        run: git clone https://mpr.makedeb.org/socketw.git && cd socketw && makedeb -is
+        run: https://github.com/RigsOfRods/socketw && cd socketw && make install
 
       - uses: actions/checkout@v4
 
