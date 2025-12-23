@@ -18,11 +18,14 @@
     You should have received a copy of the GNU General Public License
     along with Rigs of Rods. If not, see <http://www.gnu.org/licenses/>.
 */
-/// @file rorserver.cpp
-/// @brief This file defines the entry point for the console application.
-/// @author Pierre-Michel Ricordel
-/// @author Thomas Fisher,
-/// @author Petr Ohlidal
+
+/**
+    \file    rorserver.cpp
+    \brief   Entry point for the console app.
+    \author  Pierre-Michel Ricordel
+    \author  Thomas Fischer
+    \author  Petr Ohlidal
+*/
 
 #include "rornet.h"
 #include "sequencer.h"
@@ -30,9 +33,7 @@
 #include "config.h"
 #include "messaging.h"
 #include "listener.h"
-#include "master-server.h"
 #include "utils.h"
-#include "api.h"
 
 #include "sha1_util.h"
 #include "sha1.h"
@@ -62,8 +63,6 @@
 
 
 static Sequencer s_sequencer;
-static MasterServer::Client s_master_server;
-static Api::Client s_api_client;
 static bool s_exit_requested = false;
 #ifndef _WIN32
 
@@ -96,10 +95,6 @@ void handler(int signalnum) {
             s_sequencer.Close();
         } else {
             Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
-            // We should really have a global var for the server status...
-            if (s_api_client.Authenticated()) {
-                s_api_client.SyncServerPowerState("offline");
-            }
             s_sequencer.Close();
         }
         exit(0);
@@ -335,13 +330,6 @@ int main(int argc, char *argv[]) {
         Logger::Log(LOG_ERROR, "The API key was not set or is missing from the config file, continuing in LAN mode.");
         server_mode = SERVER_LAN;
     }
-
-    if (server_mode != SERVER_LAN)
-    {
-        ApiErrorState api_error;
-        api_error = s_api_client.CreateServer();
-    }
-    
 
     // Listener is ready, let's register ourselves on serverlist (which will contact us back to check).
     if (server_mode != SERVER_LAN) {

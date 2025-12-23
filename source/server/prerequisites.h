@@ -18,6 +18,8 @@ class UserAuth;
 
 class ScriptEngine;
 
+class HttpClient;
+
 namespace Http {
     class Response;
 }
