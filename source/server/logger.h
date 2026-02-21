@@ -51,3 +51,10 @@ namespace Logger {
     void SetLogLevel(const LogType type, const LogLevel level);
 
 } // namespace Logger
+
+// #define LOG_STACK(...)   Logger::LogWithLocation(LOG_STACK,   __FILE__, __LINE__, __VA_ARGS__)
+// #define LOG_DEBUG(...)   Logger::LogWithLocation(LOG_DEBUG,   __FILE__, __LINE__, __VA_ARGS__)
+// #define LOG_VERBOSE(...) Logger::LogWithLocation(LOG_VERBOSE, __FILE__, __LINE__, __VA_ARGS__)
+// #define LOG_INFO(...)    Logger::LogWithLocation(LOG_INFO,    __FILE__, __LINE__, __VA_ARGS__)
+// #define LOG_WARN(...)    Logger::LogWithLocation(LOG_WARN,    __FILE__, __LINE__, __VA_ARGS__)
+// #define LOG_ERROR(...)   Logger::LogWithLocation(LOG_ERROR,   __FILE__, __LINE__, __VA_ARGS__)

@@ -20,7 +20,7 @@
 */
 
 /**
-    \file    HttpClient.h
+    \file    http_client.h
     \brief   HTTP Client class definition.
     \author  Rafael Galvan
     \date    2025-12-18
@@ -44,7 +44,8 @@ enum class HttpMethod
     GET,
     POST,
     UPDATE,
-    DELETE
+    DELETE,
+    PUT
 };
 
 /**
@@ -106,7 +107,7 @@ public:
     /**
         \brief Perform an HTTP UPDATE request.
         \param url The URL to send the request to.
-        \param body The body of the PUT request.
+        \param body The body of the UPDATE request.
         \param headers Optional headers to include in the request.
         \return The HTTP response.
     */
@@ -126,10 +127,12 @@ public:
     /**
         \brief Perform an HTTP PUT request without a body.
         \param url The URL to send the request to.
+        \param body The body of the PUT request.
         \param headers Optional headers to include in the request.
         \return The HTTP response.
     */
     HttpResponse Put(const std::string& url,
+                     const std::string& body,
                      const std::map<std::string, std::string>& headers = {});
 
 private:

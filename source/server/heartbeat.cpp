@@ -20,19 +20,23 @@
 */
 
 /**
-    \file    Heartbeat.cpp
+    \file    heartbeat.cpp
     \brief   Heartbeat class implementation.
     \author  Rafael Galvan
     \date    2025-12-18
 */
 
-#include "Heartbeat.h"
-#include "ApiClient.h"
+#include "heartbeat.h"
+#include "api_client.h"
+#include "config.h"
+#include "logger.h"
+#include "json/json.h"
 
 Heartbeat::Heartbeat(ApiClient& api_client, Sequencer& sequencer)
     : m_api_client(&api_client),
       m_sequencer(&sequencer),
-      m_running(false)
+      m_running(false),
+      m_interval_seconds(Config::GetHeartbeatIntervalSec())
 {
 }
 
@@ -49,11 +53,12 @@ void Heartbeat::Start()
     }
 
     m_running.store(true);
-    m_heartbeat_thread = std::thread(&Heartbeat::WorkerThread, this);
+    m_heartbeat_thread = std::thread(&Heartbeat::ThreadMain, this);
 }
 
 void Heartbeat::Stop()
 {
+    Logger::Log(LOG_DEBUG, "Stopping heartbeat thread");
     if (!m_running.load())
     {
         return;
@@ -61,7 +66,6 @@ void Heartbeat::Stop()
 
     m_running.store(false);
     m_cv.notify_all();
-;
     if (m_heartbeat_thread.joinable())
     {
         m_heartbeat_thread.join();
@@ -79,8 +83,9 @@ std::chrono::system_clock::time_point Heartbeat::GetLastHeartbeatTime() const
     return m_last_heartbeat_time;
 }
 
-void Heartbeat::WorkerThread()
+void Heartbeat::ThreadMain()
 {
+    Logger::Log(LOG_DEBUG, "Heartbeat thread started");
     std::unique_lock<std::mutex> lock(m_cv_mutex);
 
     while (m_running.load(std::memory_order_acquire))
@@ -104,14 +109,21 @@ void Heartbeat::WorkerThread()
 
 void Heartbeat::SendHeartbeat()
 {
-    auto response = m_api_client->PutHeartbeat();
+    Logger::Log(LOG_DEBUG, "Sending heartbeat to API");
 
-    if (response.error_state != API_NO_ERROR)
+    Json::Value user_list(Json::arrayValue);
+    m_sequencer->GetHeartbeatUserList(user_list);
+
+    auto response = m_api_client->PutHeartbeat(user_list.asString());
+
+    if (response.error_state != ApiErrorState::API_NO_ERROR)
     {
+        Logger::Log(LOG_ERROR, "Failed to send heartbeat, error code: %d", static_cast<int>(response.error_state));
         return;
     }
 
     {
+        Logger::Log(LOG_DEBUG, "Heartbeat sent, updating last heartbeat time");
         std::lock_guard<std::mutex> lock(m_time_mutex);
         m_last_heartbeat_time = std::chrono::system_clock::now();
     }

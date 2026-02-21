@@ -20,7 +20,7 @@
 */
 
 /**
-    \file    Heartbeat.h
+    \file    heartbeat.h
     \brief   Heartbeat class implementation.
     \author  Rafael Galvan
     \date    2025-12-18
@@ -28,8 +28,13 @@
 
 #pragma once
 
-#include "ApiClient.h"
+#include "api_client.h"
 #include "sequencer.h"
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 class Heartbeat
 {
@@ -41,7 +46,7 @@ public:
     */
     explicit Heartbeat(
         ApiClient &api_client,
-        Sequencer &sequencer,
+        Sequencer &sequencer
     );
     ~Heartbeat();
 
@@ -73,8 +78,18 @@ public:
     std::chrono::system_clock::time_point GetLastHeartbeatTime() const;
 
 private:
-    ApiClient                               &m_api_client;          // <! API client
-    Sequencer                               &m_sequencer;           // <! Sequencer
+    /**
+        \brief Thread state
+     */
+    enum ThreadState
+    {
+        NOT_RUNNING,
+        RUNNING,
+        PENDING_SHUTDOWN
+    };
+
+    ApiClient                               *m_api_client;          // <! API client
+    Sequencer                               *m_sequencer;           // <! Sequencer
     std::thread                             m_heartbeat_thread;     // <! Thread for sending heartbeats
     std::atomic<bool>                       m_running{false};       // <! Flag to control the heartbeat thread
     mutable std::mutex                      m_time_mutex;           // <! Timer mutex
@@ -84,9 +99,21 @@ private:
     std::mutex                              m_cv_mutex;             // <! CV mutex
 
     /**
-        \brief Worker thread function.
+        \brief Main thread function.
     */
-    void WorkerThread();
+    void ThreadMain();
+
+    /**
+        \brief Set the thread state.
+        \param s New thread state.
+     */
+    void SetThreadState(ThreadState s);
+
+    /**
+        \brief Get the current thread state.
+        \return Current thread state.
+     */
+    ThreadState GetThreadState();
 
     /**
         \brief Send a heartbeat to the API.

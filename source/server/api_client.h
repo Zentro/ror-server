@@ -28,16 +28,9 @@
 
 #pragma once
 
-#include "HttpClient.h"
+#include "http_client.h"
 
-#include <atomic>
 #include <string>
-#include <chrono>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
-#include <queue>
-#include <memory>
 
 /**
     \brief Enum representing different API error states
@@ -97,9 +90,16 @@ public:
         \brief Send a heartbeat request to the API
         \return The API response
      */
-    ApiResponse PutHeartbeat();
+    ApiResponse PutHeartbeat(const std::string& data);
 private:
     std::string                             m_base_url;             // <! Base URL for the API
     std::string                             m_api_key;              // <! API key for authentication
     std::unique_ptr<HttpClient>             m_http_client;          // <! HTTP client for making requests
+
+    /**
+        \brief Helper function to convert HTTP status codes to ApiErrorState
+        \param http_code The HTTP status code to convert
+        \return The corresponding ApiErrorState
+     */
+    ApiErrorState GetErrorStateFromHttpCode(long http_code);
 };

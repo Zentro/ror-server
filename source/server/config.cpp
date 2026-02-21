@@ -46,7 +46,7 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 // ============================== Variables ===================================
 
-static std::string s_server_name;
+static std::string s_server_name("A Rigs of Rods server");
 static std::string s_terrain_name("any");
 static std::string s_public_password;
 static std::string s_ip_addr("0.0.0.0");

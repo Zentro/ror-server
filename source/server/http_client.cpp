@@ -20,13 +20,13 @@
 */
 
 /**
-    \file    HttpClient.cpp
+    \file    http_client.cpp
     \brief   HTTP Client class implementation.
     \author  Rafael Galvan
     \date    2025-12-18
 */
 
-#include "HttpClient.h"
+#include "http_client.h"
 
 #include <thread>
 #include <algorithm>
@@ -99,6 +99,13 @@ HttpResponse HttpClient::Delete(const std::string &url,
                                 const std::map<std::string, std::string> &headers)
 {
     return RequestWithRetry(HttpMethod::DELETE, url, "", headers);
+}
+
+HttpResponse HttpClient::Put(const std::string &url,
+                             const std::string &body,
+                             const std::map<std::string, std::string> &headers)
+{
+    return RequestWithRetry(HttpMethod::PUT, url, body, headers);
 }
 
 HttpResponse HttpClient::RequestOnce(HttpMethod method,

@@ -23,7 +23,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "rornet.h"
 #include "logger.h"
-#include "api.h"
 #include "json/json.h"
 
 #include <stdexcept>
@@ -35,8 +34,6 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 #include <stdlib.h>
 
 #endif
-
-static Api::Client s_api;
 
 UserAuth::UserAuth(std::string authFile) {
     readConfig(authFile.c_str());
@@ -160,15 +157,15 @@ int UserAuth::resolve(const std::string& user_token, const std::string& session_
     // We'll call the API to verify the challenge the client sent, we should
     // only get back API_NO_ERROR to indicate that the challenge could be
     // verified.
-    if (!session_token.empty() || session_token[0] == '\000')
-    {
-        ApiErrorState status = s_api.VerifyClientSession(session_token);
-        if (status == API_NO_ERROR)
-        {
-            Logger::Log(LOG_INFO, "%s was assigned RANKED", user_nick);
-            auth_level = RoRnet::AUTH_RANKED;
-        }
-    }
+    // if (!session_token.empty() || session_token[0] == '\000')
+    // {
+    //     ApiErrorState status = s_api.VerifyClientSession(session_token);
+    //     if (status == API_NO_ERROR)
+    //     {
+    //         Logger::Log(LOG_INFO, "%s was assigned RANKED", user_nick);
+    //         auth_level = RoRnet::AUTH_RANKED;
+    //     }
+    // }
 
     // Then, we compare against the local authorizations file and override
     // with what the server has for us.
