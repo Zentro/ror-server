@@ -55,6 +55,9 @@ static std::string s_authfile("server.auth");
 static std::string s_motdfile("server.motd");
 static std::string s_rulesfile("server.rules");
 static std::string s_blacklistfile("server.blacklist");
+static std::string s_player_whitelist_file;
+static std::string s_banned_actors_file;
+static std::string s_actor_whitelist_file;
 static std::string s_owner;
 static std::string s_website;
 static std::string s_irc;
@@ -124,6 +127,9 @@ namespace Config {
                         " -motd-file <server.motd>             Path to file with message of the day\n"
                         " -rules-file <server.rules>           Path to file with rules for this server\n"
                         " -blacklist-file <server.blacklist>   Path to file where bans are persisted\n"
+                        " -player-whitelist-file <file.json>   Path to JSON file with whitelisted players (token/username)\n"
+                        " -banned-actors-file <file.json>      Path to JSON file with globally banned actors\n"
+                        " -actor-whitelist-file <file.json>    Path to JSON file with globally allowed actors\n"
                         " -vehicle-limit {0-...}       Sets the maximum number of vehicles that a user is allowed to have\n"
                         " -owner <name|organisation>   Sets the owner of this server (for the !owner command) (optional)\n"
                         " -website <URL>               Sets the website of this server (for the !website command) (optional)\n"
@@ -258,6 +264,9 @@ namespace Config {
             HANDLE_ARG_VALUE("motd-file", { setMOTDFile(value); });
             HANDLE_ARG_VALUE("rules-file", { setRulesFile(value); });
             HANDLE_ARG_VALUE("blacklist-file", { setBlacklistFile(value); });
+            HANDLE_ARG_VALUE("player-whitelist-file", { setPlayerWhitelistFile(value); });
+            HANDLE_ARG_VALUE("banned-actors-file", { setBannedActorsFile(value); });
+            HANDLE_ARG_VALUE("actor-whitelist-file", { setActorWhitelistFile(value); });
             HANDLE_ARG_VALUE("owner", { setOwner(value); });
             HANDLE_ARG_VALUE("website", { setWebsite(value); });
             HANDLE_ARG_VALUE("irc", { setIRC(value); });
@@ -328,6 +337,12 @@ namespace Config {
     const std::string &getMOTDFile() { return s_motdfile; }
 
     const std::string &getBlacklistFile() { return s_blacklistfile; }
+
+    const std::string &getPlayerWhitelistFile() { return s_player_whitelist_file; }
+
+    const std::string &getBannedActorsFile() { return s_banned_actors_file; }
+
+    const std::string &getActorWhitelistFile() { return s_actor_whitelist_file; }
 
     const std::string &getRulesFile() { return s_rulesfile; }
 
@@ -422,6 +437,12 @@ namespace Config {
 
     void setBlacklistFile(const std::string &file) { s_blacklistfile = file; }
 
+    void setPlayerWhitelistFile(const std::string &file) { s_player_whitelist_file = file; }
+
+    void setBannedActorsFile(const std::string &file) { s_banned_actors_file = file; }
+
+    void setActorWhitelistFile(const std::string &file) { s_actor_whitelist_file = file; }
+
     void setMaxVehicles(unsigned int num) { s_max_vehicles = num; }
 
     void setSpawnIntervalSec(int sec) { s_spawn_interval_sec = sec; }
@@ -509,6 +530,9 @@ namespace Config {
         else if (strcmp(key, "motdfile") == 0) { setMOTDFile(VAL_STR (value)); }
         else if (strcmp(key, "rulesfile") == 0) { setRulesFile(VAL_STR (value)); }
         else if (strcmp(key, "blacklistfile") == 0) { setBlacklistFile(VAL_STR(value)); }
+        else if (strcmp(key, "player-whitelist-file") == 0) { setPlayerWhitelistFile(VAL_STR(value)); }
+        else if (strcmp(key, "banned-actors-file") == 0) { setBannedActorsFile(VAL_STR(value)); }
+        else if (strcmp(key, "actor-whitelist-file") == 0) { setActorWhitelistFile(VAL_STR(value)); }
         else if (strcmp(key, "owner") == 0) { setOwner(VAL_STR (value)); }
         else if (strcmp(key, "website") == 0) { setWebsite(VAL_STR (value)); }
         else if (strcmp(key, "irc") == 0) { setIRC(VAL_STR (value)); }

@@ -149,7 +149,8 @@ Sequencer::Sequencer() :
         m_auth_resolver(nullptr),
         m_num_disconnects_total(0),
         m_num_disconnects_crash(0),
-        m_blacklist(this),
+        m_actor_filter(this),
+        m_player_filter(this),
         m_bot_count(0),
         m_free_user_id(1) {
     m_start_time = static_cast<int>(time(nullptr));
@@ -172,7 +173,10 @@ void Sequencer::Initialize() {
 
     m_auth_resolver = new UserAuth(Config::getAuthFile());
 
-    m_blacklist.LoadBlacklistFromFile();
+    m_player_filter.LoadBlacklistFromFile();
+    m_player_filter.LoadPlayerWhitelist(Config::getPlayerWhitelistFile());
+    m_actor_filter.LoadBannedActors(Config::getBannedActorsFile());
+    m_actor_filter.LoadActorWhitelist(Config::getActorWhitelistFile());
 }
 
 /**
@@ -282,6 +286,15 @@ void Sequencer::createClient(SWInetSocket *sock, RoRnet::UserInfo user) {
     SWBaseSocket::SWBaseError error;
     if (Sequencer::IsBanned(sock->get_peerAddr(&error).c_str())) {
         Logger::Log(LOG_WARN, "rejected banned client '%s' with IP %s", nick.c_str(), sock->get_peerAddr(&error).c_str());
+        Messaging::SWSendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
+        return;
+    }
+
+    // check player whitelist
+    std::string token(user.usertoken, 40);
+    if (Sequencer::IsPlayerBlocked(token, nick)) {
+        Logger::Log(LOG_WARN, "rejected non-whitelisted client '%s' with IP %s",
+                    nick.c_str(), sock->get_peerAddr(&error).c_str());
         Messaging::SWSendMessage(sock, RoRnet::MSG2_BANNED, 0, 0, 0, 0);
         return;
     }
@@ -764,7 +777,7 @@ bool Sequencer::Ban(int buid, int modUID, const char *msg) {
 
     this->RecordBan(banned_client->GetIpAddress(), 
         banned_client->GetUsername(), mod_client->GetUsername(), msg);
-    m_blacklist.SaveBlacklistToFile(); // Persist the ban
+    m_player_filter.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
     return Kick(buid, modUID, kick_msg.c_str());
@@ -779,7 +792,7 @@ void Sequencer::SilentBan(int buid, const char *msg, bool doScriptCallback /*= t
 
     this->RecordBan(banned_client->GetIpAddress(),
         banned_client->GetUsername(), "rorserver", msg);
-    m_blacklist.SaveBlacklistToFile(); // Persist the ban
+    m_player_filter.SaveBlacklistToFile(); // Persist the ban
 
     std::string kick_msg = msg + std::string(" (banned)");
     QueueClientForDisconnect(banned_client->user.uniqueid, kick_msg.c_str(), false, doScriptCallback);
@@ -789,7 +802,7 @@ bool Sequencer::UnBanIP(std::string ip_addr) {
     for (unsigned int i = 0; i < m_bans.size(); i++) {
         if (m_bans[i]->ip == ip_addr) {
             m_bans.erase(m_bans.begin() + i);
-            m_blacklist.SaveBlacklistToFile();
+            m_player_filter.SaveBlacklistToFile();
             Logger::Log(LOG_VERBOSE, "ban removed: %d", ip_addr);
             return true;
         }
@@ -801,7 +814,7 @@ bool Sequencer::UnBan(int bid) {
     for (unsigned int i = 0; i < m_bans.size(); i++) {
         if (m_bans[i]->bid == bid) {
             m_bans.erase(m_bans.begin() + i);
-			m_blacklist.SaveBlacklistToFile(); // Remove from the blacklist file
+			m_player_filter.SaveBlacklistToFile(); // Remove from the blacklist file
             Logger::Log(LOG_VERBOSE, "ban removed: %d", bid);
             return true;
         }
@@ -819,6 +832,168 @@ bool Sequencer::IsBanned(const char *ip) {
             return true;
     }
     return false;
+}
+
+static bool UsernameEqual(const char* a, const char* b)
+{
+    while (*a && *b)
+    {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+            return false;
+        ++a; ++b;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+void Sequencer::RecordWhitelistedPlayer(std::string const& token, std::string const& username)
+{
+    player_whitelist_t e;
+    memset(&e, 0, sizeof(player_whitelist_t));
+    e.wid = (unsigned int)m_whitelist_entries.size() + 1;
+    strncpy(e.token,    token.c_str(),    sizeof(e.token)    - 1);
+    strncpy(e.username, username.c_str(), sizeof(e.username) - 1);
+    m_whitelist_entries.push_back(e);
+}
+
+bool Sequencer::WhitelistPlayer(int uid, int mod_uid)
+{
+    Client *target = this->FindClientById(static_cast<unsigned int>(uid));
+    if (target == nullptr)
+        return false;
+    Client *mod = this->FindClientById(static_cast<unsigned int>(mod_uid));
+    if (mod == nullptr)
+        return false;
+
+    std::string token(target->user.usertoken, 40);
+    std::string username = target->GetUsername();
+    this->RecordWhitelistedPlayer(token, username);
+    m_player_filter.SavePlayerWhitelistToFile();
+
+    Logger::Log(LOG_VERBOSE, "player '%s' whitelisted by '%s'",
+                username.c_str(), mod->GetUsername().c_str());
+    return true;
+}
+
+bool Sequencer::UnWhitelistPlayer(unsigned int wid)
+{
+    for (unsigned int i = 0; i < m_whitelist_entries.size(); i++)
+    {
+        if (m_whitelist_entries[i].wid == wid)
+        {
+            m_whitelist_entries.erase(m_whitelist_entries.begin() + i);
+            m_player_filter.SavePlayerWhitelistToFile();
+            Logger::Log(LOG_VERBOSE, "whitelist entry %u removed", wid);
+            return true;
+        }
+    }
+    return false;
+}
+
+void Sequencer::BanActor(std::string const& filename)
+{
+    this->RecordBannedActor(filename, "");
+    m_actor_filter.SaveBannedActorsToFile();
+    Logger::Log(LOG_VERBOSE, "actor '%s' banned", filename.c_str());
+}
+
+bool Sequencer::UnBanActor(std::string const& filename)
+{
+    for (unsigned int i = 0; i < m_actor_bans.size(); i++)
+    {
+        if (UsernameEqual(m_actor_bans[i].filename, filename.c_str()))
+        {
+            m_actor_bans.erase(m_actor_bans.begin() + i);
+            m_actor_filter.SaveBannedActorsToFile();
+            Logger::Log(LOG_VERBOSE, "actor ban for '%s' removed", filename.c_str());
+            return true;
+        }
+    }
+    return false;
+}
+
+void Sequencer::WhitelistActor(std::string const& filename)
+{
+    this->RecordWhitelistedActor(filename, "");
+    m_actor_whitelist_loaded = true;
+    m_actor_filter.SaveActorWhitelistToFile();
+    Logger::Log(LOG_VERBOSE, "actor '%s' whitelisted", filename.c_str());
+}
+
+bool Sequencer::UnWhitelistActor(std::string const& filename)
+{
+    for (unsigned int i = 0; i < m_actor_whitelist.size(); i++)
+    {
+        if (UsernameEqual(m_actor_whitelist[i].filename, filename.c_str()))
+        {
+            m_actor_whitelist.erase(m_actor_whitelist.begin() + i);
+            m_actor_filter.SaveActorWhitelistToFile();
+            Logger::Log(LOG_VERBOSE, "actor whitelist entry for '%s' removed", filename.c_str());
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Sequencer::IsPlayerBlocked(const std::string& token, const std::string& username)
+{
+    if (!m_player_whitelist_loaded)
+        return false;
+
+    for (const player_whitelist_t& e : m_whitelist_entries)
+    {
+        bool token_ok    = (e.token[0]    == '\0') || (token    == e.token);
+        bool username_ok = (e.username[0] == '\0') || UsernameEqual(e.username, username.c_str());
+
+        if (token_ok && username_ok)
+            return false;
+    }
+
+    return true;
+}
+
+void Sequencer::RecordBannedActor(std::string const& filename, std::string const& hash)
+{
+    actor_ban_t e;
+    memset(&e, 0, sizeof(actor_ban_t));
+    strncpy(e.filename, filename.c_str(), sizeof(e.filename) - 1);
+    strncpy(e.hash,     hash.c_str(),     sizeof(e.hash)     - 1);
+    m_actor_bans.push_back(e);
+}
+
+void Sequencer::RecordWhitelistedActor(std::string const& filename, std::string const& hash)
+{
+    actor_whitelist_t e;
+    memset(&e, 0, sizeof(actor_whitelist_t));
+    strncpy(e.filename, filename.c_str(), sizeof(e.filename) - 1);
+    strncpy(e.hash,     hash.c_str(),     sizeof(e.hash)     - 1);
+    m_actor_whitelist.push_back(e);
+}
+
+bool Sequencer::IsActorBanned(const char* filename, const char* hash)
+{
+    for (const actor_ban_t& e : m_actor_bans)
+    {
+        if (!UsernameEqual(e.filename, filename))
+            continue;
+        if (e.hash[0] == '\0' || hash[0] == '\0' || !strcmp(e.hash, hash))
+            return true;
+    }
+    return false;
+}
+
+bool Sequencer::IsActorBlocked(const char* filename, const char* hash)
+{
+    if (!m_actor_whitelist_loaded)
+        return false;
+
+    for (const actor_whitelist_t& e : m_actor_whitelist)
+    {
+        if (!UsernameEqual(e.filename, filename))
+            continue;
+        if (e.hash[0] == '\0' || hash[0] == '\0' || !strcmp(e.hash, hash))
+            return false;
+    }
+    return true;
 }
 
 void Sequencer::streamDebug() {
@@ -928,6 +1103,34 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
             // disconnect the user with a message
             snprintf(sayMsg, 300, "You were auto-kicked for spawning invalid vehicle");
 
+            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
+            publishMode = BROADCAST_BLOCK; // drop
+        } else if (reg->type == STREAM_REG_TYPE_VEHICLE
+                   && Sequencer::IsActorBanned(reg->name)) {
+            // Actor is globally banned — drop the stream and kick the user
+            Logger::Log(LOG_INFO, "%s(%d) tried to spawn banned actor '%s'. Stream dropped, user kicked.",
+                        client->GetUsername().c_str(), client->user.uniqueid, reg->name);
+
+            char sayMsg[300] = "";
+            snprintf(sayMsg, 300, "%s was auto-kicked for spawning a banned actor ('%s')",
+                     client->GetUsername().c_str(), reg->name);
+            serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+            snprintf(sayMsg, 300, "You were auto-kicked for spawning a banned actor ('%s'). Please rejoin.", reg->name);
+            QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
+            publishMode = BROADCAST_BLOCK; // drop
+        } else if (reg->type == STREAM_REG_TYPE_VEHICLE
+                   && Sequencer::IsActorBlocked(reg->name)) {
+            // Actor is not on the global whitelist — drop the stream and kick the user
+            Logger::Log(LOG_INFO, "%s(%d) tried to spawn non-whitelisted actor '%s'. Stream dropped, user kicked.",
+                        client->GetUsername().c_str(), client->user.uniqueid, reg->name);
+
+            char sayMsg[300] = "";
+            snprintf(sayMsg, 300, "%s was auto-kicked for spawning a non-whitelisted actor ('%s')",
+                     client->GetUsername().c_str(), reg->name);
+            serverSay(sayMsg, TO_ALL, FROM_SERVER);
+
+            snprintf(sayMsg, 300, "You were auto-kicked for spawning a non-whitelisted actor ('%s'). Please rejoin.", reg->name);
             QueueClientForDisconnect(client->user.uniqueid, sayMsg, false);
             publishMode = BROADCAST_BLOCK; // drop
         } else {
@@ -1040,6 +1243,9 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
         if (str == "!help") {
             serverSay(std::string("builtin commands:"), uid);
             serverSay(std::string("!version, !list, !say, !bans, !ban, !unban, !unbanip, !kick, !vehiclelimit"), uid);
+            serverSay(std::string("!playerwhitelist, !whitelist, !unwhitelist"), uid);
+            serverSay(std::string("!bannedactors, !banactor, !unbanactor"), uid);
+            serverSay(std::string("!whitelistedactors, !whitelistactor, !unwhitelistactor"), uid);
             serverSay(std::string("!website, !irc, !owner, !voip, !rules, !motd"), uid);
         }
 
@@ -1298,6 +1504,151 @@ void Sequencer::queueMessage(int uid, int type, unsigned int streamid, char *dat
                         serverSay(*it, uid, FROM_RULES);
                     }
                 }
+            }
+        } else if (str == "!playerwhitelist") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                serverSay(std::string("wid | token                                    | username"), uid);
+                if (m_whitelist_entries.empty()) {
+                    serverSay(std::string("There are no player whitelist entries!"), uid);
+                } else {
+                    for (unsigned int i = 0; i < m_whitelist_entries.size(); i++) {
+                        char tmp[256] = "";
+                        sprintf(tmp, "% 3d | %-40s | %-20s",
+                            m_whitelist_entries[i].wid,
+                            m_whitelist_entries[i].token,
+                            m_whitelist_entries[i].username);
+                        serverSay(std::string(tmp), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 11) == "!whitelist ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                int wuid = -1;
+                int res = sscanf(str.substr(11).c_str(), "%d", &wuid);
+                if (res != 1 || wuid == -1) {
+                    serverSay(std::string("usage: !whitelist <uid>"), uid);
+                    serverSay(std::string("example: !whitelist 3"), uid);
+                } else {
+                    if (WhitelistPlayer(wuid, uid)) {
+                        char tmp[256] = "";
+                        sprintf(tmp, "player %d added to whitelist", wuid);
+                        serverSay(std::string(tmp), uid);
+                    } else {
+                        serverSay(std::string("whitelist not updated: uid not found!"), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 13) == "!unwhitelist ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                int wid = -1;
+                int res = sscanf(str.substr(13).c_str(), "%d", &wid);
+                if (res != 1 || wid == -1) {
+                    serverSay(std::string("usage: !unwhitelist <wid>"), uid);
+                    serverSay(std::string("example: !unwhitelist 3"), uid);
+                } else {
+                    if (UnWhitelistPlayer(static_cast<unsigned int>(wid)))
+                        serverSay(std::string("whitelist entry removed"), uid);
+                    else
+                        serverSay(std::string("whitelist entry not found"), uid);
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str == "!bannedactors") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                serverSay(std::string("filename"), uid);
+                if (m_actor_bans.empty()) {
+                    serverSay(std::string("There are no actor bans!"), uid);
+                } else {
+                    for (unsigned int i = 0; i < m_actor_bans.size(); i++) {
+                        serverSay(std::string(m_actor_bans[i].filename), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 10) == "!banactor ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                std::string filename = str.substr(10);
+                if (filename.empty()) {
+                    serverSay(std::string("usage: !banactor <filename>"), uid);
+                    serverSay(std::string("example: !banactor mycar.truck"), uid);
+                } else {
+                    BanActor(filename);
+                    char tmp[256] = "";
+                    sprintf(tmp, "actor '%s' banned", filename.c_str());
+                    serverSay(std::string(tmp), uid);
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 12) == "!unbanactor ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                std::string filename = str.substr(12);
+                if (filename.empty()) {
+                    serverSay(std::string("usage: !unbanactor <filename>"), uid);
+                    serverSay(std::string("example: !unbanactor mycar.truck"), uid);
+                } else {
+                    if (UnBanActor(filename)) {
+                        char tmp[256] = "";
+                        sprintf(tmp, "actor ban for '%s' removed", filename.c_str());
+                        serverSay(std::string(tmp), uid);
+                    } else {
+                        serverSay(std::string("actor ban not found"), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str == "!whitelistedactors") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                serverSay(std::string("filename"), uid);
+                if (m_actor_whitelist.empty()) {
+                    serverSay(std::string("There are no actor whitelist entries!"), uid);
+                } else {
+                    for (unsigned int i = 0; i < m_actor_whitelist.size(); i++) {
+                        serverSay(std::string(m_actor_whitelist[i].filename), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 16) == "!whitelistactor ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                std::string filename = str.substr(16);
+                if (filename.empty()) {
+                    serverSay(std::string("usage: !whitelistactor <filename>"), uid);
+                    serverSay(std::string("example: !whitelistactor mycar.truck"), uid);
+                } else {
+                    WhitelistActor(filename);
+                    char tmp[256] = "";
+                    sprintf(tmp, "actor '%s' added to whitelist", filename.c_str());
+                    serverSay(std::string(tmp), uid);
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
+            }
+        } else if (str.substr(0, 18) == "!unwhitelistactor ") {
+            if (client->user.authstatus & RoRnet::AUTH_MOD || client->user.authstatus & RoRnet::AUTH_ADMIN) {
+                std::string filename = str.substr(18);
+                if (filename.empty()) {
+                    serverSay(std::string("usage: !unwhitelistactor <filename>"), uid);
+                    serverSay(std::string("example: !unwhitelistactor mycar.truck"), uid);
+                } else {
+                    if (UnWhitelistActor(filename)) {
+                        char tmp[256] = "";
+                        sprintf(tmp, "actor '%s' removed from whitelist", filename.c_str());
+                        serverSay(std::string(tmp), uid);
+                    } else {
+                        serverSay(std::string("actor whitelist entry not found"), uid);
+                    }
+                }
+            } else {
+                serverSay(std::string("You are not authorized to use this command!"), uid);
             }
         } else if (str == "!motd") {
             this->sendMOTD(uid);

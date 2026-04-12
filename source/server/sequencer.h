@@ -20,7 +20,8 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "blacklist.h"
+#include "actorfilter.h"
+#include "playerfilter.h"
 #include "prerequisites.h"
 #include "rornet.h"
 #include "broadcaster.h"
@@ -171,6 +172,22 @@ struct WebserverClientInfo // Needed because Client cannot be trivially copied a
     std::map<unsigned int, stream_traffic_t> streams_traffic;
 };
 
+struct actor_ban_t {
+    char filename[128]; //!< Actor filename; matches StreamRegister::name
+    char hash[64];      //!< Optional hash; empty = match any version
+};
+
+struct actor_whitelist_t {
+    char filename[128]; //!< Actor filename; matches StreamRegister::name
+    char hash[64];      //!< Optional hash; empty = match any version
+};
+
+struct player_whitelist_t {
+    unsigned int wid;                          //!< whitelist entry id
+    char token[40];                            //!< 40-char usertoken; empty = not checked
+    char username[RORNET_MAX_USERNAME_LEN];    //!< Display name;       empty = not checked
+};
+
 struct ban_t {
 	unsigned int bid;			//!< id of ban, not the user id
     char ip[40];                //!< ip of banned client
@@ -199,7 +216,8 @@ class Sequencer {
     friend class SpamFilter;
     friend class Client;
     friend class ServerScript;
-    friend class Blacklist;
+    friend class ActorFilter;
+    friend class PlayerFilter;
 public:
 
     // Startup and shutdown
@@ -246,7 +264,19 @@ private:
     void                     RecordReport(int to_report_uid, std::string const& ip_addr, std::string const& nickname, std::string const& by_nickname, std::string const& msg);
     bool                     IsBanned(const char *ip);
     bool                     UnBanIP(std::string ip_addr);
+    void                     RecordWhitelistedPlayer(std::string const& token, std::string const& username);
+    bool                     IsPlayerBlocked(const std::string& token, const std::string& username);
+    void                     RecordBannedActor(std::string const& filename, std::string const& hash);
+    void                     RecordWhitelistedActor(std::string const& filename, std::string const& hash);
+    bool                     IsActorBanned(const char* filename, const char* hash = "");
+    bool                     IsActorBlocked(const char* filename, const char* hash = "");
     bool                     UnBan(int bid);
+    bool                     WhitelistPlayer(int uid, int mod_uid);
+    bool                     UnWhitelistPlayer(unsigned int wid);
+    void                     BanActor(std::string const& filename);
+    bool                     UnBanActor(std::string const& filename);
+    void                     WhitelistActor(std::string const& filename);
+    bool                     UnWhitelistActor(std::string const& filename);
     void                     streamDebug();
     std::vector<ban_t>       GetBanListCopy();
     void                     broadcastUserInfo(int uid);
@@ -264,11 +294,17 @@ private:
     int m_start_time;
     size_t m_num_disconnects_total; //!< Statistic
     size_t m_num_disconnects_crash; //!< Statistic
-    Blacklist m_blacklist;
+    PlayerFilter m_player_filter;
+    ActorFilter m_actor_filter;
 
     std::vector<Client *> m_clients;
     std::vector<ban_t *> m_bans;
     std::vector<report_t *> m_reports;
+    std::vector<actor_ban_t> m_actor_bans;
+    std::vector<actor_whitelist_t> m_actor_whitelist;
+    bool m_actor_whitelist_loaded = false;
+    std::vector<player_whitelist_t> m_whitelist_entries;
+    bool m_player_whitelist_loaded = false;
 
     // Killer thread context
     std::queue<Client *>     m_kill_queue;

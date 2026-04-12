@@ -79,6 +79,12 @@ namespace Config {
 
     const std::string &getBlacklistFile();
 
+    const std::string &getPlayerWhitelistFile();
+
+    const std::string &getBannedActorsFile();
+
+    const std::string &getActorWhitelistFile();
+
     const std::string &getOwner();
 
     const std::string &getWebsite();
@@ -149,6 +155,12 @@ namespace Config {
     void setRulesFile(const std::string &rulesFile);
 
     void setBlacklistFile(const std::string &blacklistFile);
+
+    void setPlayerWhitelistFile(const std::string &file);
+
+    void setBannedActorsFile(const std::string &file);
+
+    void setActorWhitelistFile(const std::string &file);
 
     void setOwner(const std::string &owner);
 

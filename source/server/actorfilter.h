@@ -20,21 +20,20 @@ along with Rigs of Rods Server. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-/// @file Persistent blacklist of users or contents
-/// @author Petr Ohlidal, 2019
-///    Data structures are historically defined in sequencer.h
-
 #include "prerequisites.h"
 
-class Blacklist
+#include <string>
+
+class ActorFilter
 {
 public:
-    Blacklist(Sequencer* database);
+    ActorFilter(Sequencer* sequencer);
 
-    void SaveBlacklistToFile();
-    bool LoadBlacklistFromFile();
+    bool LoadBannedActors(const std::string& filepath);
+    bool LoadActorWhitelist(const std::string& filepath);
+    void SaveBannedActorsToFile();
+    void SaveActorWhitelistToFile();
 
 private:
-    Sequencer* m_database;
+    Sequencer* m_sequencer;
 };
-
