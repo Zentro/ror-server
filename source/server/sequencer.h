@@ -152,25 +152,6 @@ private:
     std::vector<std::chrono::system_clock::time_point> m_stream_reg_timestamps; //!< To limit spawn rate
 };
 
-struct WebserverClientInfo // Needed because Client cannot be trivially copied anymore due to presence of std::atomic<>
-{
-    WebserverClientInfo(Client* c):
-        user (c->user),
-        status(c->GetStatus()),
-        ip_address(c->GetIpAddress()),
-        streams(c->streams),
-        streams_traffic(c->streams_traffic){
-    }
-    Client::Status GetStatus() const { return status; }
-    std::string GetIpAddress() const { return ip_address; }
-
-    RoRnet::UserInfo user;  //!< Copy of user information
-    Client::Status status;
-    std::string ip_address;
-    std::map<unsigned int, RoRnet::StreamRegister> streams;
-    std::map<unsigned int, stream_traffic_t> streams_traffic;
-};
-
 struct ban_t {
 	unsigned int bid;			//!< id of ban, not the user id
     char ip[40];                //!< ip of banned client
@@ -217,7 +198,6 @@ public:
     void GetHeartbeatUserList(Json::Value &out_array);
     void UpdateMinuteStats();
     int AuthorizeNick(std::string token, std::string &nickname);
-    std::vector<WebserverClientInfo> GetClientListCopy();
     int getStartTime();
 
     // Killer thread control

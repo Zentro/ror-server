@@ -1483,16 +1483,6 @@ Client *Sequencer::FindClientById(unsigned int client_id) {
     return nullptr;
 }
 
-std::vector<WebserverClientInfo> Sequencer::GetClientListCopy() {
-    std::lock_guard<std::mutex> scoped_lock(m_clients_mutex);
-
-    std::vector<WebserverClientInfo> output;
-    for (Client *c : m_clients) {
-        output.push_back(c);
-    }
-    return output;
-}
-
 std::vector<ban_t> Sequencer::GetBanListCopy()
 {
     // FIXME: bans really should be synchronized ~ 09/2019
