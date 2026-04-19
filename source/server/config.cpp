@@ -70,7 +70,6 @@ static unsigned int s_heartbeat_retry_seconds(15);
 static unsigned int s_heartbeat_interval_sec(60);
 
 static bool s_print_stats(false);
-static bool s_foreground(false);
 static bool s_show_version(false);
 static bool s_show_help(false);
 static bool s_ranked_only(false);
@@ -118,7 +117,6 @@ namespace Config {
                         " -script-file <script.as>     Server script to execute\n"
                         " -print-stats                 Prints stats to the console\n"
                         " -version                     Prints the server version numbers\n"
-                        " -fg                          Starts the server in the foreground (background by default)\n"
                         " -resource-dir <path>         Sets the path to the resource directory\n"
                         " -auth-file <server.auth>             Path to file with authorization info\n"
                         " -motd-file <server.motd>             Path to file with message of the day\n"
@@ -270,8 +268,6 @@ namespace Config {
             HANDLE_ARG_VALUE("port", { setListenPort(atoi(value)); });
 
             HANDLE_ARG_FLAG ("print-stats", { setPrintStats(true); });
-            HANDLE_ARG_FLAG ("foreground", { setForeground(true); });
-            HANDLE_ARG_FLAG ("fg", { setForeground(true); });
             HANDLE_ARG_FLAG ("inet", { setServerMode(SERVER_INET); });
             HANDLE_ARG_FLAG ("lan", { setServerMode(SERVER_LAN); });
             HANDLE_ARG_FLAG ("version", { s_show_version = true; });
@@ -316,8 +312,6 @@ namespace Config {
     ServerType getServerMode() { return s_server_mode; }
 
     bool getPrintStats() { return s_print_stats; }
-
-    bool getForeground() { return s_foreground; }
 
     bool getRankedOnly() { return s_ranked_only; }
 
@@ -430,8 +424,6 @@ namespace Config {
 
     void setOwner(const std::string &owner) { s_owner = owner; }
 
-    void setForeground(bool value) { s_foreground = value; }
-
     void setRankedOnly(bool value) { s_ranked_only = value; }
 
     void setWebsite(const std::string &website) { s_website = website; }
@@ -501,7 +493,6 @@ namespace Config {
         else if (strcmp(key, "port") == 0) { setListenPort(VAL_INT (value)); }
         else if (strcmp(key, "mode") == 0) { SetConfServerMode(VAL_STR (value)); }
         else if (strcmp(key, "printstats") == 0) { setPrintStats(VAL_BOOL(value)); }
-        else if (strcmp(key, "foreground") == 0) { setForeground(VAL_BOOL(value)); }
         else if (strcmp(key, "ranked-only") == 0) { setRankedOnly(VAL_BOOL(value)); }
         else if (strcmp(key, "resdir") == 0) { setResourceDir(VAL_STR (value)); }
         else if (strcmp(key, "logfilename") == 0) { Logger::SetOutputFile(VAL_STR (value)); }

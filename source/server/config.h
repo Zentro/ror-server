@@ -65,8 +65,6 @@ namespace Config {
 
     bool getEnableScripting();
 
-    bool getForeground();
-
     bool getRankedOnly();
 
     const std::string &getResourceDir();
@@ -133,8 +131,6 @@ namespace Config {
     void setPrintStats(bool value);
 
     void setHeartbeatIntervalSec(unsigned sec);
-
-    void setForeground(bool value);
 
     void setRankedOnly(bool value);
 

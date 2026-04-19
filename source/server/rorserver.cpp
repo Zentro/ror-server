@@ -137,107 +137,6 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
 
 #ifndef WITHOUTMAIN
 
-#ifndef _WIN32
-// from http://www.enderunix.org/docs/eng/daemon.php
-// also http://www-theorie.physik.unizh.ch/~dpotter/howto/daemonize
-
-#define LOCK_FILE "rorserver.lock"
-
-void daemonize() {
-    if (getppid() == 1) {
-        /* already a daemon */
-        return;
-    }
-
-    /* Drop user if there is one, and we were run as root */
-    const char *username = "rorserver";
-    // TODO: add flexibility to change the username via cmdline
-    if (getuid() == 0 || geteuid() == 0) {
-        Logger::Log(LOG_VERBOSE, "changing user to %s", username);
-        struct passwd *pw = getpwnam(username);
-        if (pw) {
-            int i = setuid(pw->pw_uid);
-            if (i) {
-                perror("unable to change user");
-                exit(1);
-            }
-        } else {
-            //perror("error getting user");
-            Logger::Log(LOG_ERROR, "unable to get user %s, Is it existing?", username);
-            printf("unable to get user %s, Is it existing?\n", username);
-            exit(1);
-        }
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        Logger::Log(LOG_ERROR, "error forking into background");
-        perror("error forking into background");
-        exit(1); /* fork error */
-    }
-    if (pid > 0) {
-        // need both here
-        printf("forked into background as pid %d\n", pid);
-        Logger::Log(LOG_INFO, "forked into background as pid %d", pid);
-        exit(0); /* parent exits */
-    }
-
-    /* child (daemon) continues */
-
-    /* Change the file mode mask */
-    umask(0);
-
-    /* obtain a new process group */
-    pid_t sid = setsid();
-    if (sid < 0) {
-        perror("unable to get a new session");
-        exit(1);
-    }
-
-    /* Redirect standard files to /dev/null */
-    freopen("/dev/null", "r", stdin);
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
-
-    /* Change the current working directory.  This prevents the current
-       directory from being locked; hence not being able to remove it. */
-    if ((chdir("/")) < 0) {
-        perror("unable to change working directory to /");
-        exit(1);
-    }
-
-    /*
-    // TODO: add config option for lockfile name
-    {
-        int lfp=open(LOCK_FILE,O_RDWR|O_CREAT,0640);
-        if (lfp<0)
-        {
-            //cannot open
-            perror("could not open lock file");
-            exit(1);
-        }
-        if (lockf(lfp,F_TLOCK,0)<0)
-        {
-            // cannot lock
-            perror("could not lock");
-            exit(0); 
-        }
-
-        // record pid to lockfile
-        char str[10];
-        sprintf(str,"%d\n",getpid());
-        write(lfp,str,strlen(str));
-    }
-    */
-
-    // ignore some signals
-    signal(SIGCHLD, SIG_IGN); /* ignore child */
-    signal(SIGTSTP, SIG_IGN); /* ignore tty signals */
-    signal(SIGTTOU, SIG_IGN);
-    signal(SIGTTIN, SIG_IGN);
-}
-
-#endif // ! _WIN32
 
 int main(int argc, char *argv[]) {
     // set default verbose levels
@@ -290,14 +189,6 @@ int main(int argc, char *argv[]) {
         Logger::Log(LOG_ERROR, "sha1 malfunction!");
         return -1;
     }
-
-#ifndef _WIN32
-    if (!Config::getForeground()) {
-        // no output because of background mode
-        Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_NONE);
-        daemonize();
-    }
-#endif // ! _WIN32
 
     // so ready to run, then set up signal handling
 #ifndef _WIN32
