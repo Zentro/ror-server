@@ -43,8 +43,6 @@ namespace Messaging {
             char *out_payload,
             unsigned int payload_buf_len);
 
-    int broadcastLAN();
-
     void StatsAddIncoming(int bytes);
 
     void StatsAddIncomingDrop(int bytes);

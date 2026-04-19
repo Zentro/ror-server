@@ -268,9 +268,6 @@ int main(int argc, char *argv[]) {
             Messaging::UpdateMinuteStats();
             s_sequencer.UpdateMinuteStats();
 
-            // broadcast our "i'm here" signal
-            Messaging::broadcastLAN();
-
             // sleep a minute
             Utils::SleepSeconds(60);
         }
