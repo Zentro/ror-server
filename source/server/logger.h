@@ -23,6 +23,15 @@ along with Foobar. If not, see <http://www.gnu.org/licenses/>.
 
 #include "UnicodeStrings.h"
 
+#ifndef SPDLOG_ACTIVE_LEVEL
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+#endif
+
+#include <spdlog/spdlog.h>
+
+#include <memory>
+#include <string>
+
 enum LogLevel {
     LOG_STACK = 0,
     LOG_DEBUG,
@@ -35,19 +44,22 @@ enum LogLevel {
 
 enum LogType {
     LOGTYPE_FILE = 0,
-    LOGTYPE_DISPLAY
+    LOGTYPE_CONSOLE
 };
 
 namespace Logger {
 
-    void Log(LogLevel level, const char *format, ...);
+    spdlog::logger* Get();
 
-    void Log(LogLevel level, std::string const& msg);
+    void SetOutputFile(const std::string& filename);
 
-    void LogWrite(LogLevel level, const char* message);
-
-    void SetOutputFile(const std::string &filename);
-
-    void SetLogLevel(const LogType type, const LogLevel level);
+    void SetLogLevel(LogType type, LogLevel level);
 
 } // namespace Logger
+
+#define ROR_SVR_TRACE(...)    SPDLOG_LOGGER_TRACE(Logger::Get(), __VA_ARGS__)
+#define ROR_SVR_DEBUG(...)    SPDLOG_LOGGER_DEBUG(Logger::Get(), __VA_ARGS__)
+#define ROR_SVR_INFO(...)     SPDLOG_LOGGER_INFO(Logger::Get(), __VA_ARGS__)
+#define ROR_SVR_WARN(...)     SPDLOG_LOGGER_WARN(Logger::Get(), __VA_ARGS__)
+#define ROR_SVR_ERROR(...)    SPDLOG_LOGGER_ERROR(Logger::Get(), __VA_ARGS__)
+#define ROR_SVR_CRITICAL(...) SPDLOG_LOGGER_CRITICAL(Logger::Get(), __VA_ARGS__)

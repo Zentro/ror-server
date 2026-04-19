@@ -71,11 +71,11 @@ Receiver::ThreadState Receiver::GetThreadState()
 }
 
 void Receiver::ThreadMain() {
-    Logger::Log(LOG_DEBUG, "Started receiver thread (user ID %d)", m_client->GetUserId());
+    ROR_SVR_DEBUG("Started receiver thread (user ID {})", m_client->GetUserId());
 
     m_client->GetSocket()->set_timeout((Uint32)60, 0); // 60sec
     m_client->SetReceiveData(true);
-    Logger::Log(LOG_VERBOSE, "UID %d is switching to FLOW", m_client->GetUserId());
+    ROR_SVR_DEBUG("UID {} is switching to FLOW", m_client->GetUserId());
 
     m_sequencer->sendMOTDSynchronized(m_client->GetUserId());
 
@@ -87,8 +87,9 @@ void Receiver::ThreadMain() {
 
         if (m_recv_header.command != RoRnet::MSG2_STREAM_DATA &&
             m_recv_header.command != RoRnet::MSG2_STREAM_DATA_DISCARDABLE) {
-            Logger::Log(LOG_VERBOSE, "got message: type: %d, source: %d:%d, len: %d",
-                        (int)m_recv_header.command, (int)m_recv_header.source, (int)m_recv_header.streamid, (int)m_recv_header.size);
+            ROR_SVR_DEBUG("got message: type: {}, source: {}:{}, len: {}",
+                          (int)m_recv_header.command, (int)m_recv_header.source,
+                          (int)m_recv_header.streamid, (int)m_recv_header.size);
         }
 
         if (m_recv_header.command < 1000u || m_recv_header.command > 1050u) {
@@ -100,7 +101,7 @@ void Receiver::ThreadMain() {
             (int)m_recv_header.command, m_recv_header.streamid, m_recv_payload, m_recv_header.size);
     }
 
-    Logger::Log(LOG_DEBUG, "Receiver thread (user ID %d) exits", m_client->GetUserId());
+    ROR_SVR_DEBUG("Receiver thread (user ID {}) exits", m_client->GetUserId());
 }
 
 bool Receiver::ThreadReceiveMessage()
@@ -129,14 +130,14 @@ bool Receiver::ThreadReceiveHeader() //!< @return false if thread should be stop
     std::memset((void*)&m_recv_header, 0, sizeof(RoRnet::Header));
     if (m_client->GetSocket()->frecv((char*)&m_recv_header, (int)sizeof(RoRnet::Header), &error) <= 0)
     {
-        Logger::Log(LOG_WARN, "Receiver: error getting header: %s", error.get_error().c_str());
+        ROR_SVR_WARN("Receiver: error getting header: {}", error.get_error());
         return false; // stop thread.
     }
 
     if (m_recv_header.size > RORNET_MAX_MESSAGE_LENGTH)
     {
         // Oversized payload
-        Logger::Log(LOG_WARN, "Receiver: payload too long: %d/ max. %d bytes", (int)m_recv_header.size, RORNET_MAX_MESSAGE_LENGTH);
+        ROR_SVR_WARN("Receiver: payload too long: {}/ max. {} bytes", (int)m_recv_header.size, RORNET_MAX_MESSAGE_LENGTH);
         return false; // Stop thread.
     }
 
@@ -150,7 +151,7 @@ bool Receiver::ThreadReceivePayload() //!< @return false if thread should be sto
     std::memset(m_recv_payload, 0, RORNET_MAX_MESSAGE_LENGTH);
     if (m_client->GetSocket()->frecv(m_recv_payload, (int)m_recv_header.size, &error) <= 0)
     {
-        Logger::Log(LOG_WARN, "Receiver: error getting payload: %s", error.get_error().c_str());
+        ROR_SVR_WARN("Receiver: error getting payload: {}", error.get_error());
         return false; // stop thread.
     }
 

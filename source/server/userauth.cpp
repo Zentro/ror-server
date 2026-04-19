@@ -43,11 +43,11 @@ UserAuth::UserAuth(std::string authFile) {
 int UserAuth::readConfig(const char *authFile) {
     FILE *f = fopen(authFile, "r");
     if (!f) {
-        Logger::Log(LOG_WARN, "Couldn't open the local authorizations file ('%s'). No authorizations were loaded.",
-                    authFile);
+        ROR_SVR_WARN("Couldn't open the local authorizations file ('{}'). No authorizations were loaded.",
+                     authFile);
         return -1;
     }
-    Logger::Log(LOG_VERBOSE, "Reading the local authorizations file...");
+    ROR_SVR_DEBUG("Reading the local authorizations file...");
     int linecounter = 0;
     while (!feof(f)) {
         char line[2048] = "";
@@ -78,7 +78,7 @@ int UserAuth::readConfig(const char *authFile) {
         char user_nick[NICK_LEN] = "";
         int res = sscanf(line, "%d %s", &authmode, token);
         if (res != 2) {
-            Logger::Log(LOG_ERROR, "error parsing authorizations file: " + std::string(line));
+            ROR_SVR_ERROR("error parsing authorizations file: {}", line);
             continue;
         }
 
@@ -106,13 +106,13 @@ int UserAuth::readConfig(const char *authFile) {
         if (authmode & RoRnet::AUTH_RANKED) authmode &= ~RoRnet::AUTH_RANKED;
         if (authmode & RoRnet::AUTH_BANNED) authmode &= ~RoRnet::AUTH_BANNED;
 
-        Logger::Log(LOG_DEBUG, "adding entry to local auth cache, size: %d", local_auth.size());
+        ROR_SVR_DEBUG("adding entry to local auth cache, size: {}", local_auth.size());
         user_auth_pair_t p;
         p.first = authmode;
         p.second = Str::SanitizeUtf8(user_nick);
         local_auth[std::string(token)] = p;
     }
-    Logger::Log(LOG_INFO, "found %d auth overrides in the authorizations file!", local_auth.size());
+    ROR_SVR_INFO("found {} auth overrides in the authorizations file!", local_auth.size());
     fclose(f);
     return 0;
 }
@@ -133,16 +133,16 @@ int UserAuth::sendUserEvent(std::string user_token, std::string type, std::strin
     
     char url[2048];
     sprintf(url, "%s/userevent_utf8/?v=0&sh=%s&h=%s&t=%s&a1=%s&a2=%s", REPO_URLPREFIX, challenge.c_str(), user_token.c_str(), type.c_str(), arg1.c_str(), arg2.c_str());
-    Logger::Log(LOG_DEBUG, "UserAuth event to server: " + std::string(url));
+    ROR_SVR_DEBUG("UserAuth event to server: {}", url);
     Http::Response resp;
     if (HTTPGET(url, resp) < 0)
     {
-        Logger::Log(LOG_ERROR, "UserAuth event query result empty");
+        ROR_SVR_ERROR("UserAuth event query result empty");
         return -1;
     }
 
     std::string body = resp.GetBody();
-    Logger::Log(LOG_DEBUG,"UserEvent reply: " + body);
+    ROR_SVR_DEBUG("UserEvent reply: {}", body);
 
     return (body!="ok");
 
@@ -160,7 +160,7 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
     // contact the master server
     char log_url[512];
     sprintf(log_url, "%s%s", Config::GetServerlistHost().c_str(), userauth_path.c_str());
-    Logger::Log(LOG_INFO, "Attempting user authentication (%s)", log_url);
+    ROR_SVR_INFO("Attempting user authentication ({})", log_url);
 
     Json::Value data(Json::objectValue);
     data["username"] = user_nick;
@@ -174,10 +174,10 @@ int UserAuth::resolve(std::string user_token, std::string &user_nick, int client
 
     // 200 means success!
     if (result_code == 200) {
-        Logger::Log(LOG_INFO, "User authentication success, result code: %d", result_code);
+        ROR_SVR_INFO("User authentication success, result code: {}", result_code);
         authlevel = RoRnet::AUTH_RANKED;
     } else {
-        Logger::Log(LOG_INFO, "User authentication failed, result code: %d", result_code);
+        ROR_SVR_INFO("User authentication failed, result code: {}", result_code);
     }
 
     //then check for overrides in the authorizations file (server admins, etc)

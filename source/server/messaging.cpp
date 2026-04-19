@@ -103,7 +103,7 @@ namespace Messaging {
         const int msgsize = sizeof(RoRnet::Header) + len;
 
         if (msgsize >= RORNET_MAX_MESSAGE_LENGTH) {
-            Logger::Log(LOG_ERROR, "UID: %d - attempt to send too long message", source);
+            ROR_SVR_ERROR("UID: {} - attempt to send too long message", source);
             return -4;
         }
 
@@ -122,7 +122,7 @@ namespace Messaging {
 
         if (socket->fsend(buffer, msgsize, &error) < msgsize)
         {
-            Logger::Log(LOG_ERROR, "send error -1: %s", error.get_error().c_str());
+            ROR_SVR_ERROR("send error -1: {}", error.get_error());
             return -1;
         }
         StatsAddOutgoing(msgsize);
@@ -163,8 +163,8 @@ namespace Messaging {
         *out_stream_id = head.streamid;
 
         if ( head.size > payload_buf_len) {
-            Logger::Log(LOG_ERROR, "SWReceiveMessage(): payload too long: %d b (max. is %d b)", head.size,
-                        payload_buf_len);
+            ROR_SVR_ERROR("SWReceiveMessage(): payload too long: {} b (max. is {} b)", head.size,
+                          payload_buf_len);
             return -3;
         }
 
@@ -197,18 +197,18 @@ namespace Messaging {
         WSADATA wsd;
         if (WSAStartup(MAKEWORD(2, 2), &wsd) != 0)
         {
-            Logger::Log(LOG_ERROR, "error starting up winsock");
+            ROR_SVR_ERROR("error starting up winsock");
             return 1;
         }
 
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
         {
-            Logger::Log(LOG_ERROR, "error creating socket for LAN broadcast: %s", strerror(errno));
+            ROR_SVR_ERROR("error creating socket for LAN broadcast: {}", strerror(errno));
             return 1;
         }
         if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char *)&on, sizeof(on)) < 0)
         {
-            Logger::Log(LOG_ERROR, "error setting socket options for LAN broadcast: %s", strerror(errno));
+            ROR_SVR_ERROR("error setting socket options for LAN broadcast: {}", strerror(errno));
             return 2;
         }
 
@@ -218,7 +218,7 @@ namespace Messaging {
 
         if (bind(sockfd, (struct sockaddr *)&sendaddr, sizeof(sendaddr))  == SOCKET_ERROR)
         {
-            Logger::Log(LOG_ERROR, "error binding socket for LAN broadcast: %s", strerror(errno));
+            ROR_SVR_ERROR("error binding socket for LAN broadcast: {}", strerror(errno));
             return 3;
         }
 
@@ -245,14 +245,14 @@ namespace Messaging {
         int numbytes = 0;
         while((numbytes = sendto(sockfd, tmp, strnlen(tmp, 1024), 0, (struct sockaddr *)&recvaddr, sizeof recvaddr)) < -1)
         {
-            Logger::Log(LOG_ERROR, "error sending data over socket for LAN broadcast: %s", strerror(errno));
+            ROR_SVR_ERROR("error sending data over socket for LAN broadcast: {}", strerror(errno));
             return 4;
         }
 
         // and close the socket again
         closesocket(sockfd);
 
-        Logger::Log(LOG_DEBUG, "LAN broadcast successful");
+        ROR_SVR_DEBUG("LAN broadcast successful");
 #endif // _WIN32	
         return 0;
     }

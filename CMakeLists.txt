@@ -17,6 +17,7 @@ find_package(Angelscript)
 find_package(jsoncpp REQUIRED)
 find_package(SocketW REQUIRED)
 find_package(CURL)
+find_package(spdlog REQUIRED)
 cmake_dependent_option(RORSERVER_WITH_ANGELSCRIPT "Adds scripting support" ON "TARGET Angelscript::angelscript" OFF)
 cmake_dependent_option(RORSERVER_WITH_CURL "Adds CURL request support (needs AngelScript)" ON "TARGET CURL::libcurl" OFF)
 

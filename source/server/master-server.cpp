@@ -46,31 +46,31 @@ namespace MasterServer {
 
         m_server_path = "/" + Config::GetServerlistPath() + "/server-list";
 
-        Logger::Log(LOG_INFO, "Attempting to register on serverlist (%s)", m_server_path.c_str());
+        ROR_SVR_INFO("Attempting to register on serverlist ({})", m_server_path);
         Http::Response response;
         int result_code = this->HttpRequest(Http::METHOD_POST, data.toStyledString().c_str(), &response);
         if (result_code < 0) {
-            Logger::Log(LOG_ERROR, "Registration failed, result code: %d", result_code);
+            ROR_SVR_ERROR("Registration failed, result code: {}", result_code);
             return false;
         } else if (result_code != 200) {
-            Logger::Log(LOG_INFO, "Registration failed, response code: HTTP %d, body: %s", result_code,
-                        response.GetBody().c_str());
+            ROR_SVR_INFO("Registration failed, response code: HTTP {}, body: {}", result_code,
+                         response.GetBody());
             return false;
         }
 
         Json::Value root;
         Json::Reader reader;
         if (!reader.parse(response.GetBody().c_str(), root)) {
-            Logger::Log(LOG_ERROR, "Registration failed, invalid server response (JSON parsing failed)");
-            Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
+            ROR_SVR_ERROR("Registration failed, invalid server response (JSON parsing failed)");
+            ROR_SVR_DEBUG("Raw response: {}", response.GetBody());
             return false;
         }
 
         Json::Value trust_level = root["verified-level"];
         Json::Value challenge = root["challenge"];
         if (!root.isObject() || !trust_level.isNumeric() || !challenge.isString()) {
-            Logger::Log(LOG_ERROR, "Registration failed, incorrect response from server");
-            Logger::Log(LOG_DEBUG, "Raw response: %s", response.GetBody().c_str());
+            ROR_SVR_ERROR("Registration failed, incorrect response from server");
+            ROR_SVR_DEBUG("Raw response: {}", response.GetBody());
             return false;
         }
 
@@ -85,13 +85,13 @@ namespace MasterServer {
         data["challenge"] = m_token;
         data["users"] = user_list;
         std::string json_str = data.toStyledString();
-        Logger::Log(LOG_DEBUG, "Heartbeat JSON:\n%s", json_str.c_str());
+        ROR_SVR_DEBUG("Heartbeat JSON:\n{}", json_str);
 
         Http::Response response;
         int result_code = this->HttpRequest(Http::METHOD_PUT, json_str.c_str(), &response);
         if (result_code != 200) {
             const char *type = (result_code < 0) ? "result code" : "HTTP code";
-            Logger::Log(LOG_ERROR, "Heatbeat failed, %s: %d", type, result_code);
+            ROR_SVR_ERROR("Heatbeat failed, {}: {}", type, result_code);
             return false;
         }
         return true;
@@ -103,13 +103,13 @@ namespace MasterServer {
         Json::Value data(Json::objectValue);
         data["challenge"] = m_token;
         std::string json_str = data.toStyledString();
-        Logger::Log(LOG_DEBUG, "UnRegister JSON:\n%s", json_str.c_str());
+        ROR_SVR_DEBUG("UnRegister JSON:\n{}", json_str);
 
         Http::Response response;
         int result_code = this->HttpRequest(Http::METHOD_DELETE, json_str.c_str(), &response);
         if (result_code < 0) {
             const char *type = (result_code < 0) ? "result code" : "HTTP code";
-            Logger::Log(LOG_ERROR, "Failed to un-register server, %s: %d", type, result_code);
+            ROR_SVR_ERROR("Failed to un-register server, {}: {}", type, result_code);
             return false;
         }
         m_is_registered = false;
@@ -130,7 +130,7 @@ namespace MasterServer {
         int result_code = Http::Request(Http::METHOD_GET,
                                         Config::GetServerlistHost(), url, "application/json", "", &response);
         if (result_code < 0) {
-            Logger::Log(LOG_ERROR, "Failed to retrieve public IP address");
+            ROR_SVR_ERROR("Failed to retrieve public IP address");
             return false;
         }
         Config::setIPAddr(response.GetBody());

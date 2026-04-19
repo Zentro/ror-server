@@ -143,57 +143,57 @@ namespace Config {
     bool checkConfig() {
         switch (getServerMode()) {
             case SERVER_AUTO:
-                Logger::Log(LOG_INFO, "server started in automatic mode.");
+                ROR_SVR_INFO("server started in automatic mode.");
                 break;
             case SERVER_LAN:
-                Logger::Log(LOG_INFO, "server started in LAN mode.");
+                ROR_SVR_INFO("server started in LAN mode.");
                 break;
             case SERVER_INET:
-                Logger::Log(LOG_INFO, "server started in Internet mode.");
+                ROR_SVR_INFO("server started in Internet mode.");
                 break;
         }
 
         if (!getListenPort()) {
-            Logger::Log(LOG_WARN, "No port supplied, randomly generating one");
+            ROR_SVR_WARN("No port supplied, randomly generating one");
             setListenPort(Utils::generateRandomPortNumber());
         }
 
-        Logger::Log(LOG_INFO, "port:       %d", getListenPort());
+        ROR_SVR_INFO("port:       {}", getListenPort());
 
         if (getTerrainName().empty()) {
-            Logger::Log(LOG_ERROR, "terrain not specified");
+            ROR_SVR_ERROR("terrain not specified");
             return 0;
         } else
-            Logger::Log(LOG_INFO, "terrain:    %s", getTerrainName().c_str());
+            ROR_SVR_INFO("terrain:    {}", getTerrainName());
 
         if (getMaxClients() < 2 || getMaxClients() > 64) {
-            Logger::Log(LOG_ERROR, "Max clients need to 2 or more, and 64 or less.");
+            ROR_SVR_ERROR("Max clients need to 2 or more, and 64 or less.");
             return 0;
         } else
-            Logger::Log(LOG_INFO, "maxclients: %d", getMaxClients());
+            ROR_SVR_INFO("maxclients: {}", getMaxClients());
 
         if (getAuthFile().empty()) {
-            Logger::Log(LOG_ERROR, "Authorizations file not specified. Using default (admins.txt)");
+            ROR_SVR_ERROR("Authorizations file not specified. Using default (admins.txt)");
             setAuthFile("server.auth");
         }
 
         if (getMOTDFile().empty()) {
-            Logger::Log(LOG_ERROR, "MOTD file not specified. Using default (motd.txt).");
+            ROR_SVR_ERROR("MOTD file not specified. Using default (motd.txt).");
             setMOTDFile("server.motd");
         }
 
         if (getMaxVehicles() < 1) {
-            Logger::Log(LOG_ERROR, "The vehicle-limit cannot be less than 1!");
+            ROR_SVR_ERROR("The vehicle-limit cannot be less than 1!");
             return 0;
         }
 
         SpamFilter::CheckConfig();
 
-        Logger::Log(LOG_INFO, "server is%s password protected",
-                    getPublicPassword().empty() ? " NOT" : "");
+        ROR_SVR_INFO("server is{} password protected",
+                     getPublicPassword().empty() ? " NOT" : "");
 
-        Logger::Log(LOG_INFO, "server is%s ranked-only mode",
-                    getRankedOnly() ? "" : " NOT");
+        ROR_SVR_INFO("server is{} ranked-only mode",
+                     getRankedOnly() ? "" : " NOT");
 
         return getMaxClients() && getListenPort() && !getIPAddr().empty() &&
                !getTerrainName().empty();
@@ -212,9 +212,9 @@ namespace Config {
         }                                           \
         else                                        \
         {                                           \
-            Logger::Log(LOG_WARN,                   \
-                "Command line error: argument `%s` "\
-                "at position %d has no value",      \
+            ROR_SVR_WARN(                           \
+                "Command line error: argument `{}` " \
+                "at position {} has no value",      \
                 arg, pos);                          \
             return false;                           \
         }                                           \
@@ -239,7 +239,7 @@ namespace Config {
             // Cut off the leading `-`, `--` or `/` (windows)
             char *arg = argv[pos];
             if ((*arg != '-') && (*arg != '/')) {
-                Logger::Log(LOG_WARN, "Invalid command line argument `%s` at position %d", arg, pos);
+                ROR_SVR_WARN("Invalid command line argument `{}` at position {}", arg, pos);
                 pos += 1;
                 continue;
             }
@@ -277,10 +277,10 @@ namespace Config {
 
             // Logging
             HANDLE_ARG_VALUE("log-file", { Logger::SetOutputFile(value); });
-            HANDLE_ARG_VALUE("verbosity", { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel) atoi(value)); });
+            HANDLE_ARG_VALUE("verbosity", { Logger::SetLogLevel(LOGTYPE_CONSOLE, (LogLevel) atoi(value)); });
             HANDLE_ARG_VALUE("log-verbosity", { Logger::SetLogLevel(LOGTYPE_FILE, (LogLevel) atoi(value)); });
 
-            Logger::Log(LOG_WARN, "Unrecognized argument `%s` at position %d", arg, pos);
+            ROR_SVR_WARN("Unrecognized argument `{}` at position {}", arg, pos);
             pos += 1;
         }
 
@@ -386,12 +386,11 @@ namespace Config {
     bool setPublicPass(const std::string &pub_pass) {
         if (pub_pass.length() > 0 && pub_pass.size() < 250 &&
             !SHA1FromString(s_public_password, pub_pass)) {
-            Logger::Log(LOG_ERROR, "could not generate server SHA1 password hash!");
+            ROR_SVR_ERROR("could not generate server SHA1 password hash!");
             s_public_password = "";
             return false;
         }
-        Logger::Log(LOG_DEBUG, "sha1(%s) = %s", pub_pass.c_str(),
-                    s_public_password.c_str());
+        ROR_SVR_DEBUG("sha1({}) = {}", pub_pass, s_public_password);
         return true;
     }
 
@@ -440,7 +439,7 @@ namespace Config {
 
     void setHeartbeatIntervalSec(unsigned sec) {
         s_heartbeat_interval_sec = sec;
-        Logger::Log(LOG_VERBOSE, "Hearbeat interval is %d seconds", sec);
+        ROR_SVR_DEBUG("Hearbeat interval is {} seconds", sec);
     }
 
     bool setServerMode(ServerType mode) {
@@ -506,7 +505,7 @@ namespace Config {
         else if (strcmp(key, "voip") == 0) { setVoIP(VAL_STR (value)); }
         else if (strcmp(key, "serverlist-host") == 0) { s_serverlist_host = VAL_STR (value); }
         else if (strcmp(key, "serverlist-path") == 0) { s_serverlist_path = VAL_STR (value); }
-        else if (strcmp(key, "verbosity") == 0) { Logger::SetLogLevel(LOGTYPE_DISPLAY, (LogLevel) VAL_INT(value)); }
+        else if (strcmp(key, "verbosity") == 0) { Logger::SetLogLevel(LOGTYPE_CONSOLE, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "logverbosity") == 0) { Logger::SetLogLevel(LOGTYPE_FILE, (LogLevel) VAL_INT(value)); }
         else if (strcmp(key, "heartbeat-interval") == 0) { setHeartbeatIntervalSec(VAL_INT(value)); }
 
@@ -521,16 +520,16 @@ namespace Config {
         else if (strcmp(key, "spamfilter-gag-duration") == 0) { setSpamFilterGagDurationSec(VAL_INT(value)); }
 
         else {
-            Logger::Log(LOG_WARN, "Unknown key '%s' (value: '%s') in config file.", key, value);
+            ROR_SVR_WARN("Unknown key '{}' (value: '{}') in config file.", key, value);
         }
     }
 
     void LoadConfigFile(const std::string &filename) {
-        Logger::Log(LOG_INFO, "loading config file %s ...", filename.c_str());
+        ROR_SVR_INFO("loading config file {} ...", filename);
 
         FILE *f = fopen(filename.c_str(), "r");
         if (f == nullptr) {
-            Logger::Log(LOG_ERROR, "Failed to open config file %s ...", filename.c_str());
+            ROR_SVR_ERROR("Failed to open config file {} ...", filename);
             return;
         }
 
@@ -555,8 +554,8 @@ namespace Config {
 
             char *key_end = strrchr(key_start, '=');
             if (key_end == nullptr) {
-                Logger::Log(LOG_ERROR, "Invalid line %u; missing '=' separator (config file %s)", line_num,
-                            filename.c_str());
+                ROR_SVR_ERROR("Invalid line {}; missing '=' separator (config file {})", line_num,
+                              filename);
                 continue; // Skip invalid line
             }
 
@@ -569,7 +568,7 @@ namespace Config {
         }
 
         if (!feof(f)) {
-            Logger::Log(LOG_ERROR, "Error reading line %u from config file %s", line_num, filename.c_str());
+            ROR_SVR_ERROR("Error reading line {} from config file {}", line_num, filename);
         }
         fclose(f);
     }

@@ -36,11 +36,11 @@ bool SpamFilter::IsActive()
 void SpamFilter::CheckConfig()
 {
     if (SpamFilter::IsActive()) {
-        Logger::Log(LOG_INFO, "spam filter: active, %d msg/%d sec -> %d sec gag",
-            Config::getSpamFilterMsgCount(), Config::getSpamFilterMsgIntervalSec(),
-            Config::getSpamFilterGagDurationSec());
+        ROR_SVR_INFO("spam filter: active, {} msg/{} sec -> {} sec gag",
+                     Config::getSpamFilterMsgCount(), Config::getSpamFilterMsgIntervalSec(),
+                     Config::getSpamFilterGagDurationSec());
     } else {
-        Logger::Log(LOG_INFO, "spam filter: disabled");
+        ROR_SVR_INFO("spam filter: disabled");
     }
 }
 

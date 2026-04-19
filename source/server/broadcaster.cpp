@@ -58,14 +58,14 @@ void Broadcaster::Stop() {
         std::lock_guard<std::mutex> scoped_lock(m_mutex);
         switch (m_thread_state) {
         case ThreadState::RUNNING:
-            Logger::Log(LOG_DEBUG, "Broadcaster::Stop() (client_id %d) Thread state is RUNNING -> stopping", m_client->GetUserId());
+            ROR_SVR_DEBUG("Broadcaster::Stop() (client_id {}) Thread state is RUNNING -> stopping", m_client->GetUserId());
             m_thread_state = ThreadState::STOP_REQUESTED;
             break;
         case ThreadState::NOT_RUNNING:
-            Logger::Log(LOG_DEBUG, "Broadcaster::Stop() (client_id %d) Thread state is NOT_RUNNING -> nothing to do", m_client->GetUserId());
+            ROR_SVR_DEBUG("Broadcaster::Stop() (client_id {}) Thread state is NOT_RUNNING -> nothing to do", m_client->GetUserId());
             return; // We're done here.
         case ThreadState::STOP_REQUESTED:
-            Logger::Log(LOG_DEBUG, "Broadcaster::Stop() (client_id %d) Thread state is STOP_REQUESTED -> nothing to do", m_client->GetUserId());
+            ROR_SVR_DEBUG("Broadcaster::Stop() (client_id {}) Thread state is STOP_REQUESTED -> nothing to do", m_client->GetUserId());
             return; // We're done here.
         }
     }
@@ -81,7 +81,7 @@ void Broadcaster::Stop() {
 
 
 void Broadcaster::ThreadMain() {
-    Logger::Log(LOG_DEBUG, "Started broadcaster thread (client_id %d)", m_client->GetUserId());
+    ROR_SVR_DEBUG("Started broadcaster thread (client_id {})", m_client->GetUserId());
 
     bool exit_loop = false;
     while (!exit_loop) {
@@ -89,7 +89,7 @@ void Broadcaster::ThreadMain() {
         ThreadState state = this->ThreadWaitForMessage(message);
 
         if (state == ThreadState::STOP_REQUESTED) {
-            Logger::Log(LOG_DEBUG, "Broadcaster thread (client_id %d) was requested to stop", m_client->GetUserId());
+            ROR_SVR_DEBUG("Broadcaster thread (client_id {}) was requested to stop", m_client->GetUserId());
             // Synchronously send all the remaining messages and exit.
             std::lock_guard<std::mutex> scoped_lock(m_mutex);
             while (!m_msg_queue.empty() && this->ThreadTransmitMessage(m_msg_queue.front())) {
@@ -104,7 +104,7 @@ void Broadcaster::ThreadMain() {
         }
     }
 
-    Logger::Log(LOG_DEBUG, "Broadcaster thread (client_id %d) exits", m_client->GetUserId());
+    ROR_SVR_DEBUG("Broadcaster thread (client_id {}) exits", m_client->GetUserId());
 }
 
 

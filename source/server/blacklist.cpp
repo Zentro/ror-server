@@ -38,9 +38,8 @@ void Blacklist::SaveBlacklistToFile()
     f.open(Config::getBlacklistFile(), std::ios::out);
     if (!f.is_open() || !f.good())
     {
-        Logger::Log(LogLevel::LOG_WARN,
-            "Couldn't open the local blacklist file ('%s'). Bans were not saved.",
-            Config::getBlacklistFile().c_str());
+        ROR_SVR_WARN("Couldn't open the local blacklist file ('{}'). Bans were not saved.",
+                     Config::getBlacklistFile());
         return;
     }
 
@@ -71,18 +70,16 @@ bool Blacklist::LoadBlacklistFromFile()
     f.open(Config::getBlacklistFile(), std::ios::in);
     if (!f.is_open() || !f.good())
     {
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Couldn't open the local blacklist file ('%s'). No bans were loaded.",
-                    Config::getBlacklistFile().c_str());
+        ROR_SVR_WARN("Couldn't open the local blacklist file ('{}'). No bans were loaded.",
+                     Config::getBlacklistFile());
         return false;
     }
 
     if (Utils::IsEmptyFile(f))
     {
         f.close();
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Local blacklist file ('%s') is empty.",
-                    Config::getBlacklistFile().c_str());
+        ROR_SVR_WARN("Local blacklist file ('{}') is empty.",
+                     Config::getBlacklistFile());
         return false;
     }
 
@@ -91,9 +88,8 @@ bool Blacklist::LoadBlacklistFromFile()
     j_reader.parse(f, j_doc);
     if (!j_reader.good())
     {
-        Logger::Log(LogLevel::LOG_WARN,
-                    "Couldn't parse blacklist file, messages:\n%s",
-                    j_reader.getFormattedErrorMessages());
+        ROR_SVR_WARN("Couldn't parse blacklist file, messages:\n{}",
+                     j_reader.getFormattedErrorMessages());
         return false;
     }
 

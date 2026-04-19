@@ -72,24 +72,23 @@ void handler(int signalnum) {
     bool terminate = false;
 
     if (signalnum == SIGINT) {
-        Logger::Log(LOG_ERROR, "got interrupt signal, terminating ...");
+        ROR_SVR_DEBUG("got interrupt signal, terminating ...");
         terminate = true;
     } else if (signalnum == SIGTERM) {
-        Logger::Log(LOG_ERROR, "got terminate signal, terminating ...");
+        ROR_SVR_DEBUG("got terminate signal, terminating ...");
         terminate = true;
     } else if (signalnum == SIGHUP) {
-        Logger::Log(LOG_ERROR, "got HUP signal, terminating ...");
+        ROR_SVR_DEBUG("got HUP signal, terminating ...");
         terminate = true;
     } else {
-        Logger::Log(LOG_ERROR, "got unkown signal: %d", signal);
+        ROR_SVR_ERROR("got unkown signal: {}", signalnum);
     }
 
     if (terminate) {
+        ROR_SVR_INFO("Stopping the server");
         if (Config::getServerMode() == SERVER_LAN) {
-            Logger::Log(LOG_INFO, "closing server ... ");
             s_sequencer.Close();
         } else {
-            Logger::Log(LOG_INFO, "closing server ... unregistering ... ");
             if (s_master_server.IsRegistered()) {
                 s_master_server.UnRegister();
             }
@@ -108,29 +107,29 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
     switch (ctrl_type)
     {
     case CTRL_C_EVENT:
-        Logger::Log(LOG_INFO, "Received `Ctrl+C` event.");
+        ROR_SVR_INFO("Received `Ctrl+C` event.");
         break;
     case CTRL_BREAK_EVENT:
-        Logger::Log(LOG_INFO, "Received `Ctrl+Break` event.");
+        ROR_SVR_INFO("Received `Ctrl+Break` event.");
         break;
     case CTRL_CLOSE_EVENT:
-        Logger::Log(LOG_INFO, "Received `Close` event.");
+        ROR_SVR_INFO("Received `Close` event.");
         break;
     case CTRL_SHUTDOWN_EVENT:
-        Logger::Log(LOG_INFO, "Received `System shutdown` event.");
+        ROR_SVR_INFO("Received `System shutdown` event.");
         break;
     default:
-        Logger::Log(LOG_WARN, "Received unknown console event: %lu.", static_cast<unsigned long>(ctrl_type));
+        ROR_SVR_WARN("Received unknown console event: {}.", static_cast<unsigned long>(ctrl_type));
         return TRUE; // Means 'event handled'
     }
 
     if (s_master_server.IsRegistered())
     {
-        Logger::Log(LOG_INFO, "Unregistering...");
+        ROR_SVR_INFO("Unregistering...");
         s_master_server.UnRegister();
     }
     s_sequencer.Close(); // TODO: This somehow closes (crashes?) the process on Windows, debugger doesn't intercept anything...
-    Logger::Log(LOG_INFO, "Clean exit (Windows)");
+    ROR_SVR_INFO("Clean exit (Windows)");
     ExitProcess(0); // Recommended by MSDN, see above link.
 }
 #endif
@@ -140,13 +139,14 @@ BOOL WINAPI WindowsConsoleHandlerRoutine(DWORD ctrl_type)
 
 int main(int argc, char *argv[]) {
     // set default verbose levels
-    Logger::SetLogLevel(LOGTYPE_DISPLAY, LOG_INFO);
+    Logger::SetLogLevel(LOGTYPE_CONSOLE, LOG_INFO);
     Logger::SetLogLevel(LOGTYPE_FILE, LOG_VERBOSE);
     Logger::SetOutputFile("server.log");
 
     if (!Config::ProcessArgs(argc, argv)) {
         return -1;
     }
+
     if (Config::GetShowHelp()) {
         Config::ShowHelp();
         return 0;
@@ -156,29 +156,27 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    ROR_SVR_INFO("Starting Rigs of Rods Server version {} ({})", RORNET_VERSION, __DATE__);
+
     // Check configuration
     ServerType server_mode = Config::getServerMode();
     if (server_mode != SERVER_LAN) {
-        Logger::Log(LOG_INFO, "Starting server in INET mode");
+        ROR_SVR_INFO("Starting server in INET mode");
         std::string ip_addr = Config::getIPAddr();
         if (ip_addr.empty() || (ip_addr == "0.0.0.0")) {
-            Logger::Log(LOG_WARN, "No IP given, detecting...");
+            ROR_SVR_WARN("No IP given, detecting...");
             if (!MasterServer::RetrievePublicIp()) {
-                Logger::Log(LOG_ERROR, "Failed to auto-detect public IP, exit.");
+                ROR_SVR_ERROR("Failed to auto-detect public IP, exit.");
                 return -1;
             }
         }
-        Logger::Log(LOG_INFO, "IP address: %s", Config::getIPAddr().c_str());
-
-        unsigned int max_clients = Config::getMaxClients();
-        Logger::Log(LOG_INFO, "Maximum required upload: %ikbit/s", max_clients * (max_clients - 1) * 64);
-        Logger::Log(LOG_INFO, "Maximum required download: %ikbit/s", max_clients * 64);
+        ROR_SVR_INFO("IP address: {}", Config::getIPAddr());
 
         if (Config::getServerName().empty()) {
-            Logger::Log(LOG_ERROR, "Server name not specified, exit.");
+            ROR_SVR_ERROR("Server name not specified, exit.");
             return -1;
         }
-        Logger::Log(LOG_INFO, "Server name: %s", Config::getServerName().c_str());
+        ROR_SVR_INFO("Server name: {}", Config::getServerName());
     }
 
     if (!Config::checkConfig()) {
@@ -186,7 +184,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!sha1check()) {
-        Logger::Log(LOG_ERROR, "sha1 malfunction!");
+        ROR_SVR_ERROR("sha1 malfunction!");
         return -1;
     }
 
@@ -210,15 +208,15 @@ int main(int argc, char *argv[]) {
     if (server_mode != SERVER_LAN) {
         bool registered = s_master_server.Register();
         if (!registered && (server_mode == SERVER_INET)) {
-            Logger::Log(LOG_ERROR, "Failed to register on serverlist. Exit");
+            ROR_SVR_ERROR("Failed to register on serverlist. Exit");
             listener.Shutdown();
             return -1;
         } else if (!registered) // server_mode == SERVER_AUTO
         {
-            Logger::Log(LOG_WARN, "Failed to register on serverlist, continuing in LAN mode");
+            ROR_SVR_WARN("Failed to register on serverlist, continuing in LAN mode");
             server_mode = SERVER_LAN;
         } else {
-            Logger::Log(LOG_INFO, "Registration successful");
+            ROR_SVR_INFO("Registration successful");
         }
     }
 
@@ -233,31 +231,32 @@ int main(int argc, char *argv[]) {
             //every minute
             Utils::SleepSeconds(Config::GetHeartbeatIntervalSec());
 
-            Logger::Log(LOG_VERBOSE, "Sending heartbeat...");
+            ROR_SVR_DEBUG("Sending heartbeat...");
             Json::Value user_list(Json::arrayValue);
             s_sequencer.GetHeartbeatUserList(user_list);
             if (!s_master_server.SendHeatbeat(user_list)) {
                 unsigned int timeout = Config::GetHeartbeatRetrySeconds();
                 unsigned int max_retries = Config::GetHeartbeatRetryCount();
-                Logger::Log(LOG_WARN, "A heartbeat failed! Retry in %d seconds.", timeout);
+                ROR_SVR_WARN("A heartbeat failed! Retry in {} seconds.", timeout);
                 bool success = false;
                 for (unsigned int i = 0; i < max_retries; ++i) {
                     Utils::SleepSeconds(timeout);
                     success = s_master_server.SendHeatbeat(user_list);
 
-                    LogLevel log_level = (success ? LOG_INFO : LOG_ERROR);
                     const char *log_result = (success ? "successful." : "failed.");
-                    Logger::Log(log_level, "Heartbeat retry %d/%d %s", i + 1, max_retries, log_result);
                     if (success) {
+                        ROR_SVR_INFO("Heartbeat retry {}/{} {}", i + 1, max_retries, log_result);
                         break;
+                    } else {
+                        ROR_SVR_ERROR("Heartbeat retry {}/{} {}", i + 1, max_retries, log_result);
                     }
                 }
                 if (!success) {
-                    Logger::Log(LOG_ERROR, "Unable to send heartbeats, exit");
+                    ROR_SVR_ERROR("Unable to send heartbeats, exit");
                     s_exit_requested = true;
                 }
             } else {
-                Logger::Log(LOG_VERBOSE, "Heartbeat sent OK");
+                ROR_SVR_DEBUG("Heartbeat sent OK");
             }
         }
 

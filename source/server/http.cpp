@@ -50,9 +50,8 @@ namespace Http {
         SWInetSocket socket;
         SWInetSocket::SWBaseError result;
         if (!socket.connect(80, host, &result) || (result != SWInetSocket::ok)) {
-            Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: %s",
-                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
+            ROR_SVR_ERROR("Could not process HTTP {} request {}{} failed, error: {}",
+                          method, host, url, result.get_error());
             return "";
         }
 
@@ -60,17 +59,15 @@ namespace Http {
             content_type + "\r\nContent-Length: " + std::to_string(payload.length()) + "\r\n\r\n" + payload;
 
         if (socket.fsendmsg(query, &result) < 0) {
-            Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, error: %s",
-                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
+            ROR_SVR_ERROR("Could not process HTTP {} request {}{} failed, error: {}",
+                          method, host, url, result.get_error());
             return "";
         }
 
         std::string response = socket.recvmsg(5000, &result);
         if (result != SWInetSocket::ok) {
-            Logger::Log(LOG_ERROR,
-                        "Could not process HTTP %s request %s%s failed, invalid response length, error message: %s",
-                        method.c_str(), host.c_str(), url.c_str(), result.get_error().c_str());
+            ROR_SVR_ERROR("Could not process HTTP {} request {}{} failed, invalid response length, error message: {}",
+                          method, host, url, result.get_error());
             return "";
         }
 
@@ -135,7 +132,7 @@ namespace Http {
         char *tok0 = std::strtok(line, " ");
         char *tok1 = std::strtok(nullptr, " ");
         if (tok0 == nullptr || tok1 == nullptr) {
-            Logger::Log(LOG_ERROR, "Internal: HTTP response has malformed 1st line: \n%s", header[0].c_str());
+            ROR_SVR_ERROR("Internal: HTTP response has malformed 1st line: \n{}", header[0]);
             return false;
         }
         m_response_code = atoi(tok1);
@@ -153,7 +150,7 @@ namespace Http {
         tmp.clear();
         locHolder = message.find_first_not_of("\r\n", locHolder);
         if (std::string::npos == locHolder) {
-            Logger::Log(LOG_ERROR, "Internal: HTTP message does not appear to contain a body: \n%s", message.c_str());
+            ROR_SVR_ERROR("Internal: HTTP message does not appear to contain a body: \n{}", message);
             return false;
         }
 

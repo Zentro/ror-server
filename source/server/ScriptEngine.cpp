@@ -135,33 +135,32 @@ int ScriptEngine::loadScript(std::string scriptname) {
 
     r = builder.StartNewModule(engine, "script");
     if (r < 0) {
-        Logger::Log(LOG_ERROR, "ScriptEngine: Unknown error while starting a new script module.");
+        ROR_SVR_ERROR("ScriptEngine: Unknown error while starting a new script module.");
         return 1;
     }
 
     r = builder.AddSectionFromFile(scriptname.c_str());
     if (r < 0) {
-        Logger::Log(LOG_ERROR, "ScriptEngine: Unknown error while adding a new section from file.");
+        ROR_SVR_ERROR("ScriptEngine: Unknown error while adding a new section from file.");
         return 1;
     }
 
     r = builder.BuildModule();
     if (r < 0) {
         if (r == asINVALID_CONFIGURATION)
-            Logger::Log(LOG_ERROR, "ScriptEngine: The engine configuration is invalid.");
+            ROR_SVR_ERROR("ScriptEngine: The engine configuration is invalid.");
 
         else if (r == asERROR)
-            Logger::Log(LOG_ERROR, "ScriptEngine: The script failed to build.");
+            ROR_SVR_ERROR("ScriptEngine: The script failed to build.");
 
         else if (r == asBUILD_IN_PROGRESS)
-            Logger::Log(LOG_ERROR, "ScriptEngine: Another thread is currently building.");
+            ROR_SVR_ERROR("ScriptEngine: Another thread is currently building.");
 
         else if (r == asINIT_GLOBAL_VARS_FAILED)
-            Logger::Log(LOG_ERROR,
-                        "ScriptEngine: It was not possible to initialize at least one of the global variables.");
+            ROR_SVR_ERROR("ScriptEngine: It was not possible to initialize at least one of the global variables.");
 
         else
-            Logger::Log(LOG_ERROR, "ScriptEngine: Unknown error while building the script.");
+            ROR_SVR_ERROR("ScriptEngine: Unknown error while building the script.");
 
         return 1;
     }
@@ -203,22 +202,20 @@ int ScriptEngine::loadScript(std::string scriptname) {
     if (!func) {
         // The function couldn't be found. Instruct the script writer to include the
         // expected function in the script.
-        Logger::Log(LOG_WARN,
-                    "ScriptEngine: The script must have the function 'void main()'. Please add it and try again.");
+        ROR_SVR_WARN("ScriptEngine: The script must have the function 'void main()'. Please add it and try again.");
         return 1;
     }
 
     // prepare and execute the main function
     context->Prepare(func);
-    Logger::Log(LOG_INFO, "ScriptEngine: Executing main()");
+    ROR_SVR_INFO("ScriptEngine: Executing main()");
     r = context->Execute();
     if (r != asEXECUTION_FINISHED) {
         // The execution didn't complete as expected. Determine what happened.
         if (r == asEXECUTION_EXCEPTION) {
             // An exception occurred, let the script writer know what happened so it can be corrected.
-            Logger::Log(LOG_ERROR,
-                        "ScriptEngine: An exception '%s' occurred. Please correct the code in file '%s' and try again.",
-                        context->GetExceptionString(), scriptname.c_str());
+            ROR_SVR_ERROR("ScriptEngine: An exception '{}' occurred. Please correct the code in file '{}' and try again.",
+                          context->GetExceptionString(), scriptname);
         }
     }
 
@@ -227,25 +224,25 @@ int ScriptEngine::loadScript(std::string scriptname) {
 
 void ScriptEngine::ExceptionCallback(asIScriptContext *ctx, void *param) {
     const asIScriptFunction *function = ctx->GetExceptionFunction();
-    Logger::Log(LOG_INFO, "--- exception ---");
-    Logger::Log(LOG_INFO, "desc: %s", ctx->GetExceptionString());
-    Logger::Log(LOG_INFO, "func: %s", function->GetDeclaration());
-    Logger::Log(LOG_INFO, "modl: %s", function->GetModuleName());
-    Logger::Log(LOG_INFO, "sect: %s", function->GetScriptSectionName());
+    ROR_SVR_INFO("--- exception ---");
+    ROR_SVR_INFO("desc: {}", ctx->GetExceptionString());
+    ROR_SVR_INFO("func: {}", function->GetDeclaration());
+    ROR_SVR_INFO("modl: {}", function->GetModuleName());
+    ROR_SVR_INFO("sect: {}", function->GetScriptSectionName());
     int col, line = ctx->GetExceptionLineNumber(&col);
-    Logger::Log(LOG_INFO, "line: %d,%d", line, col);
+    ROR_SVR_INFO("line: {},{}", line, col);
 
     // Show the call stack with the variables
-    Logger::Log(LOG_INFO, "--- call stack ---");
+    ROR_SVR_INFO("--- call stack ---");
     char tmp[2048] = "";
     for (asUINT n = 0; n < ctx->GetCallstackSize(); n++) {
         function = ctx->GetFunction(n);
         sprintf(tmp, "%s (%d): %s", function->GetScriptSectionName(), ctx->GetLineNumber(n),
                 function->GetDeclaration());
-        Logger::Log(LOG_INFO, tmp);
+        ROR_SVR_INFO("{}", tmp);
         PrintVariables(ctx, n);
     }
-    Logger::Log(LOG_INFO, "--- end of script exception message ---");
+    ROR_SVR_INFO("--- end of script exception message ---");
 }
 
 void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param) {
@@ -263,7 +260,7 @@ void ScriptEngine::LineCallback(asIScriptContext *ctx, void *param) {
             line, col);
 
     strcat(tmp, "");
-    Logger::Log(LOG_INFO, tmp);
+    ROR_SVR_INFO("{}", tmp);
 
 //	PrintVariables(ctx, -1);
 }
@@ -275,7 +272,7 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel) {
     int typeId = ctx->GetThisTypeId(stackLevel);
     void *varPointer = ctx->GetThisPointer(stackLevel);
     if (typeId) {
-        Logger::Log(LOG_INFO, " this = 0x%x", varPointer);
+        ROR_SVR_INFO(" this = {}", varPointer);
     }
 
     // Print the value of each variable, including parameters
@@ -286,23 +283,23 @@ void ScriptEngine::PrintVariables(asIScriptContext *ctx, int stackLevel) {
         ctx->GetVar(n, stackLevel, &varName, &typeId);
         void *varPointer = ctx->GetAddressOfVar(n, stackLevel);
         if (typeId == asTYPEID_INT32) {
-            Logger::Log(LOG_INFO, " %s = %d", ctx->GetVarDeclaration(n, stackLevel), *(int *) varPointer);
+            ROR_SVR_INFO(" {} = {}", ctx->GetVarDeclaration(n, stackLevel), *(int *) varPointer);
         } else if (typeId == asTYPEID_FLOAT) {
-            Logger::Log(LOG_INFO, " %s = %f", ctx->GetVarDeclaration(n, stackLevel), *(float *) varPointer);
+            ROR_SVR_INFO(" {} = {}", ctx->GetVarDeclaration(n, stackLevel), *(float *) varPointer);
         } else if (typeId & asTYPEID_SCRIPTOBJECT) {
             asIScriptObject *obj = (asIScriptObject *) varPointer;
             if (obj)
-                Logger::Log(LOG_INFO, " %s = {...}", ctx->GetVarDeclaration(n, stackLevel));
+                ROR_SVR_INFO(" {} = {{...}}", ctx->GetVarDeclaration(n, stackLevel));
             else
-                Logger::Log(LOG_INFO, " %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
+                ROR_SVR_INFO(" {} = <null>", ctx->GetVarDeclaration(n, stackLevel));
         } else if (typeId == engine->GetTypeIdByDecl("string")) {
             std::string *str = (std::string *) varPointer;
             if (str)
-                Logger::Log(LOG_INFO, " %s = '%s'", ctx->GetVarDeclaration(n, stackLevel), str->c_str());
+                ROR_SVR_INFO(" {} = '{}'", ctx->GetVarDeclaration(n, stackLevel), *str);
             else
-                Logger::Log(LOG_INFO, " %s = <null>", ctx->GetVarDeclaration(n, stackLevel));
+                ROR_SVR_INFO(" {} = <null>", ctx->GetVarDeclaration(n, stackLevel));
         } else {
-            Logger::Log(LOG_INFO, " %s = {...}", ctx->GetVarDeclaration(n, stackLevel));
+            ROR_SVR_INFO(" {} = {{...}}", ctx->GetVarDeclaration(n, stackLevel));
         }
     }
 }
@@ -321,14 +318,13 @@ void ScriptEngine::init() {
     result = engine->SetMessageCallback(asMETHOD(ScriptEngine, msgCallback), this, asCALL_THISCALL);
     if (result < 0) {
         if (result == asINVALID_ARG) {
-            Logger::Log(LOG_ERROR,
-                        "ScriptEngine: One of the arguments is incorrect, e.g. obj is null for a class method.");
+            ROR_SVR_ERROR("ScriptEngine: One of the arguments is incorrect, e.g. obj is null for a class method.");
             return;
         } else if (result == asNOT_SUPPORTED) {
-            Logger::Log(LOG_ERROR, "ScriptEngine: 	The arguments are not supported, e.g. asCALL_GENERIC.");
+            ROR_SVR_ERROR("ScriptEngine: 	The arguments are not supported, e.g. asCALL_GENERIC.");
             return;
         }
-        Logger::Log(LOG_ERROR, "ScriptEngine: Unknown error while setting up message callback");
+        ROR_SVR_ERROR("ScriptEngine: Unknown error while setting up message callback");
         return;
     }
 
@@ -346,7 +342,7 @@ void ScriptEngine::init() {
     RegisterScriptFile(engine);
     RegisterScriptAny(engine);
 
-    Logger::Log(LOG_INFO, "ScriptEngine: Registration of libs done, now custom things");
+    ROR_SVR_INFO("ScriptEngine: Registration of libs done, now custom things");
 
     // Register ServerScript class
     result = engine->RegisterObjectType("ServerScriptClass", sizeof(ServerScript), asOBJ_REF | asOBJ_NOCOUNT);
@@ -567,7 +563,7 @@ void ScriptEngine::init() {
     assert_net(result >= 0);
 
 
-    Logger::Log(LOG_INFO, "ScriptEngine: Registration done");
+    ROR_SVR_INFO("ScriptEngine: Registration done");
 }
 
 void ScriptEngine::msgCallback(const asSMessageInfo *msg) {
@@ -577,7 +573,7 @@ void ScriptEngine::msgCallback(const asSMessageInfo *msg) {
     else if (msg->type == asMSGTYPE_WARNING)
         type = "Warning";
 
-    Logger::Log(LOG_INFO, "ScriptEngine: %s (%d, %d): %s = %s", msg->section, msg->row, msg->col, type, msg->message);
+    ROR_SVR_INFO("ScriptEngine: {} ({}, {}): {} = {}", msg->section, msg->row, msg->col, type, msg->message);
 }
 
 // unused method
@@ -868,7 +864,7 @@ void ScriptEngine::TimerThreadMain() {
 void ScriptEngine::EnsureTimerThreadRunning() {
     std::lock_guard<std::mutex> scoped_lock(m_timer_thread_mutex);
     if (m_timer_thread_state == ThreadState::NOT_RUNNING) {
-        Logger::Log(LOG_DEBUG, "ScriptEngine: starting framestep thread");
+        ROR_SVR_DEBUG("ScriptEngine: starting framestep thread");
         m_timer_thread = std::thread(&ScriptEngine::TimerThreadMain, this);
         m_timer_thread_state = ThreadState::RUNNING;
     }    
@@ -898,9 +894,9 @@ void ScriptEngine::StopTimerThread() {
 void ScriptEngine::setException(const std::string &message) {
     if (!engine || !context) {
         // There's not much we can do, except for logging the message
-        Logger::Log(LOG_INFO, "--- script exception ---");
-        Logger::Log(LOG_INFO, " desc: %s", (message.c_str()));
-        Logger::Log(LOG_INFO, "--- end of script exception message ---");
+        ROR_SVR_INFO("--- script exception ---");
+        ROR_SVR_INFO(" desc: {}", message);
+        ROR_SVR_INFO("--- end of script exception message ---");
     } else
         context->SetException(message.c_str());
 }
@@ -962,8 +958,8 @@ void ScriptEngine::addCallbackScript(const std::string &type, const std::string 
     }
 
     if (callbackExists(type, func, obj))
-        Logger::Log(LOG_INFO, "ScriptEngine: error: Function '" + std::string(func->GetDeclaration(false)) +
-                              "' is already a callback for '" + type + "'.");
+        ROR_SVR_INFO("ScriptEngine: error: Function '{}' is already a callback for '{}'.",
+                     func->GetDeclaration(false), type);
     else
         addCallback(type, func, obj);
 }
@@ -990,8 +986,7 @@ void ScriptEngine::addCallback(const std::string &type, asIScriptFunction *func,
     }
 
     // finished :)
-    Logger::Log(LOG_INFO, "ScriptEngine: success: Added a '" + type + "' callback for: " +
-                          std::string(func->GetDeclaration(true)));
+    ROR_SVR_INFO("ScriptEngine: success: Added a '{}' callback for: {}", type, func->GetDeclaration(true));
 }
 
 void ScriptEngine::deleteCallbackScript(const std::string &type, const std::string &_func, asIScriptObject *obj) {
@@ -1016,7 +1011,7 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
     else {
         setException("Type " + type +
                      " does not exist! Possible type strings: 'frameStep', 'playerChat', 'gameCmd', 'playerAdded', 'playerDeleted', 'streamAdded'.");
-        Logger::Log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: " + _func);
+        ROR_SVR_INFO("ScriptEngine: error: Failed to remove callback: {}", _func);
         return;
     }
 
@@ -1033,7 +1028,7 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
                              objType->GetName() + "' but the correct declaration is: '" + funcDecl + "'.");
             else
                 setException("Method '" + funcDecl + "' was not found in '" + objType->GetName() + "'.");
-            Logger::Log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: " + funcDecl);
+            ROR_SVR_INFO("ScriptEngine: error: Failed to remove callback: {}", funcDecl);
             return;
         }
     } else {
@@ -1048,7 +1043,7 @@ void ScriptEngine::deleteCallbackScript(const std::string &type, const std::stri
                              "' was found, but the correct declaration is: '" + funcDecl + "'.");
             else
                 setException("Function '" + funcDecl + "' was not found.");
-            Logger::Log(LOG_INFO, "ScriptEngine: error: Failed to remove callback: " + funcDecl);
+            ROR_SVR_INFO("ScriptEngine: error: Failed to remove callback: {}", funcDecl);
             return;
         }
     }
@@ -1061,14 +1056,13 @@ void ScriptEngine::deleteCallback(const std::string &type, asIScriptFunction *fu
     for (callbackList::iterator it = callbacks[type].begin(); it != callbacks[type].end(); ++it) {
         if (it->obj == obj && it->func == func) {
             callbacks[type].erase(it);
-            Logger::Log(LOG_INFO, "ScriptEngine: success: removed a '" + type + "' callback: " +
-                                  std::string(func->GetDeclaration(true)));
+            ROR_SVR_INFO("ScriptEngine: success: removed a '{}' callback: {}", type, func->GetDeclaration(true));
             if (obj)
                 engine->ReleaseScriptObject(obj, obj->GetObjectType());
             return;
         }
     }
-    Logger::Log(LOG_INFO, "ScriptEngine: error: failed to remove callback: " + std::string(func->GetDeclaration(true)));
+    ROR_SVR_INFO("ScriptEngine: error: failed to remove callback: {}", func->GetDeclaration(true));
 }
 
 bool ScriptEngine::callbackExists(const std::string &type, asIScriptFunction *func, asIScriptObject *obj) {
@@ -1089,7 +1083,7 @@ ServerScript::~ServerScript() {
 }
 
 void ServerScript::log(std::string &msg) {
-    Logger::Log(LOG_INFO, "SCRIPT|%s", msg.c_str());
+    ROR_SVR_INFO("SCRIPT|{}", msg);
 }
 
 void ServerScript::say(std::string &msg, int uid, int type) {

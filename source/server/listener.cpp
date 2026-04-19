@@ -56,7 +56,7 @@ bool Listener::Initialize() {
     SWBaseSocket::SWBaseError error;
     m_listen_socket.bind(Config::getListenPort(), &error);
     if (error != SWBaseSocket::ok) {
-        Logger::Log(LOG_ERROR, "FATAL Listerer: %s", error.get_error().c_str());
+        ROR_SVR_ERROR("FATAL Listerer: {}", error.get_error());
         return false;
     }
     m_listen_socket.listen();
@@ -76,30 +76,30 @@ void Listener::Shutdown() {
         return;
     }
 
-    Logger::Log(LOG_VERBOSE, "Stopping listener thread...");
+    ROR_SVR_DEBUG("Stopping listener thread...");
     m_thread_state = ThreadState::STOP_REQUESTED;
     m_thread.join();
-    Logger::Log(LOG_VERBOSE, "Listener thread stopped");
+    ROR_SVR_DEBUG("Listener thread stopped");
 }
 
 void Listener::ThreadMain() {
-    Logger::Log(LOG_DEBUG, "Listerer thread starting");
+    ROR_SVR_DEBUG("Listerer thread starting");
 
     SWBaseSocket::SWBaseError error;
 
     //await connections
     while (GetThreadState() == ThreadState::RUNNING) {
-        Logger::Log(LOG_VERBOSE, "Listener awaiting connections");
+        ROR_SVR_DEBUG("Listener awaiting connections");
         SWInetSocket *ts = (SWInetSocket *) m_listen_socket.accept(&error);
         if (error != SWBaseSocket::ok) {
             if (GetThreadState() == ThreadState::STOP_REQUESTED) {
-                Logger::Log(LOG_ERROR, "INFO Listener shutting down");
+                ROR_SVR_ERROR("INFO Listener shutting down");
             } else {
-                Logger::Log(LOG_ERROR, "ERROR Listener: %s", error.get_error().c_str());
+                ROR_SVR_ERROR("ERROR Listener: {}", error.get_error());
             }
         }
 
-        Logger::Log(LOG_VERBOSE, "Listener got a new connection");
+        ROR_SVR_DEBUG("Listener got a new connection");
 
         ts->set_timeout(5, 0);
 
@@ -124,7 +124,7 @@ void Listener::ThreadMain() {
 
             // check client version
             if (source == 5000 && (std::string(buffer) == "MasterServer")) {
-                Logger::Log(LOG_VERBOSE, "Master Server knocked ...");
+                ROR_SVR_DEBUG("Master Server knocked ...");
                 // send back some information, then close socket
                 char tmp[2048] = "";
                 sprintf(tmp, "protocol:%s\nrev:%s\nbuild_on:%s_%s\n", RORNET_VERSION, VERSION, __DATE__, __TIME__);
@@ -155,7 +155,7 @@ void Listener::ThreadMain() {
                 }
             }
 
-            Logger::Log(LOG_DEBUG, "Listener sending server settings");
+            ROR_SVR_DEBUG("Listener sending server settings");
             RoRnet::ServerInfo settings;
             memset(&settings, 0, sizeof(RoRnet::ServerInfo));
             settings.has_password = !Config::getPublicPassword().empty();
@@ -184,7 +184,7 @@ void Listener::ThreadMain() {
 
             if (len > sizeof(RoRnet::UserInfo))
                 throw std::runtime_error("Error: did not receive proper user credentials");
-            Logger::Log(LOG_INFO, "Listener creating a new client...");
+            ROR_SVR_INFO("Listener creating a new client...");
 
             RoRnet::UserInfo *user = (RoRnet::UserInfo *) buffer;
             user->authstatus = RoRnet::AUTH_NONE;
@@ -196,24 +196,23 @@ void Listener::ThreadMain() {
             strncpy(user->username, nickname.c_str(), RORNET_MAX_USERNAME_LEN - 1);
 
             if (Config::isPublic()) {
-                Logger::Log(LOG_DEBUG, "password login: %s == %s?",
-                            Config::getPublicPassword().c_str(),
-                            std::string(user->serverpassword, 40).c_str());
+                ROR_SVR_DEBUG("password login: {} == {}?",
+                              Config::getPublicPassword(),
+                              std::string(user->serverpassword, 40));
                 if (strncmp(Config::getPublicPassword().c_str(), user->serverpassword, 40)) {
                     Messaging::SWSendMessage(ts, RoRnet::MSG2_WRONG_PW, 0, 0, 0, 0);
                     throw std::runtime_error("ERROR Listener: wrong password");
                 }
 
-                Logger::Log(LOG_DEBUG, "user used the correct password, "
-                        "creating client!");
+                ROR_SVR_DEBUG("user used the correct password, creating client!");
             } else {
-                Logger::Log(LOG_DEBUG, "no password protection, creating client");
+                ROR_SVR_DEBUG("no password protection, creating client");
             }
 
             if (Config::getRankedOnly()) {
-                Logger::Log(LOG_DEBUG, "ranked-only server: checking user status");
+                ROR_SVR_DEBUG("ranked-only server: checking user status");
                 if (user->authstatus == RoRnet::AUTH_NONE) {
-                    Logger::Log(LOG_DEBUG, "ranked-only server: rejecting non-ranked user");
+                    ROR_SVR_DEBUG("ranked-only server: rejecting non-ranked user");
                     Messaging::SWSendMessage(ts, RoRnet::MSG2_NO_RANK, 0, 0, 0, 0);
                     throw std::runtime_error("ERROR Listener: no auth status");
                 }
@@ -221,10 +220,10 @@ void Listener::ThreadMain() {
 
             //create a new client
             m_sequencer->createClient(ts, *user); // copy the user info, since the buffer will be cleared soon
-            Logger::Log(LOG_DEBUG, "listener returned!");
+            ROR_SVR_DEBUG("listener returned!");
         }
         catch (std::runtime_error &e) {
-            Logger::Log(LOG_ERROR, e.what());
+            ROR_SVR_ERROR("{}", e.what());
             ts->disconnect(&error);
             delete ts;
         }
