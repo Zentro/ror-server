@@ -17,10 +17,10 @@ jobs:
       - run: echo $env:BUILD_TOOLS_PATH | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         if: startsWith(matrix.os, 'windows')
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache conan
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           key: conan-${{ matrix.os }}-${{ hashFiles('conanfile.py') }}
           path: ~/.conan2/
@@ -54,7 +54,7 @@ jobs:
           ninja
 
       - name: Upload bin folder
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ror-server-${{ matrix.os }}
           path: bin
